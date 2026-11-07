@@ -1,0 +1,346 @@
+/**
+ * `useKhata` — the ledger.
+ *
+ * Every change to the records goes through a single reducer instead of a dozen
+ * scattered `setDb(...)` call sites, so validation, undo and persistence live
+ * in one audited place and behave identically for voice, manual and imported
+ * entries.
+ */
+import {
+  CATEGORY_CATALOG,
+  clampTtsRate,
+  collectMonthKeys,
+  detectCategory,
+  formatMonthName,
+  getCurrentMonthKey,
+  getCategoryBreakdown,
+  getBudgetAlerts,
+  getMonthlySeries,
+  getTotals,
+  loadPrefs,
+  loadData,
+  nextId,
+  normalizeAccount,
+  persistData,
+  persistPrefs,
+  validateAmount,
+  type AccountKind,
+  type Budget,
+  type DataState,
+  type DigitStyle,
+  type Entry,
+  type EntryType,
+  type Prefs,
+} from "@/lib/khata";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { rememberDeletedIds } from "@/lib/sync-safety";
+import { enqueuePendingDeletion } from "@/lib/deletion-sync";
+import { logEvent } from "@/lib/logger";
+
+/** Reports a deletion that could not be stored for cloud delivery. */
+function reportQueueIssue(entryId: number, queue: { persisted: boolean; dropped: number }) {
+  if (queue.persisted && queue.dropped === 0) return;
+  logEvent("sync", "error", "pending deletion could not be stored on this device", {
+    entryId,
+    persisted: queue.persisted,
+    dropped: queue.dropped,
+  });
+}
+
+export type AddEntryInput = {
+  type: EntryType;
+  amount: number;
+  detail: string;
+  category?: string;
+  /** Cash by default; voice entries never ask. */
+  account?: AccountKind;
+};
+
+export type KhataCommand =
+  | { kind: "add"; entryType: EntryType; entry: Entry }
+  | { kind: "update"; entryType: EntryType; id: number; entry: Entry }
+  | { kind: "remove"; entryType: EntryType; id: number }
+  | { kind: "undo" }
+  | { kind: "replaceAll"; income: Entry[]; expense: Entry[] }
+  | { kind: "merge"; income: Entry[]; expense: Entry[] };
+
+function withList(
+  state: DataState,
+  entryType: EntryType,
+  mutate: (list: Entry[]) => Entry[],
+): DataState {
+  return entryType === "income"
+    ? { ...state, income: mutate(state.income) }
+    : { ...state, expense: mutate(state.expense) };
+}
+
+/**
+ * Undo history is bounded so a long voice/session run cannot grow memory (or
+ * the persisted blob) without limit. The oldest entries fall off first — undo
+ * keeps reversing the most recent adds, which is what users actually expect.
+ */
+export const UNDO_STACK_LIMIT = 50;
+
+export function khataReducer(state: DataState, command: KhataCommand): DataState {
+  switch (command.kind) {
+    case "add":
+      return {
+        ...withList(state, command.entryType, (list) => [...list, command.entry]),
+        undoStack: [
+          ...state.undoStack,
+          { type: command.entryType, record: command.entry },
+        ].slice(-UNDO_STACK_LIMIT),
+      };
+    case "update":
+      return withList(state, command.entryType, (list) =>
+        list.map((item) => (item.id === command.id ? command.entry : item)),
+      );
+    case "remove":
+      return {
+        ...withList(state, command.entryType, (list) =>
+          list.filter((item) => item.id !== command.id),
+        ),
+        // Dropping it from the stack stops an undo from resurrecting it.
+        undoStack: state.undoStack.filter((u) => u.record.id !== command.id),
+      };
+    case "undo": {
+      const last = state.undoStack[state.undoStack.length - 1];
+      if (!last) return state;
+      return {
+        ...withList(state, last.type, (list) =>
+          list.filter((item) => item.id !== last.record.id),
+        ),
+        undoStack: state.undoStack.slice(0, -1),
+      };
+    }
+    case "replaceAll":
+      return { income: command.income, expense: command.expense, undoStack: [] };
+    case "merge": {
+      const withIncome = withList(state, "income", (list) => [...list, ...command.income]);
+      return withList(withIncome, "expense", (list) => [...list, ...command.expense]);
+    }
+    default:
+      return state;
+  }
+}
+
+/** Builds a record; the caller has already validated the amount. */
+export function makeRecord(input: AddEntryInput, id = nextId()): Entry {
+  const now = new Date();
+  const detected = detectCategory(input.detail);
+  const category = input.category || detected.name;
+  return {
+    id,
+    amount: input.amount,
+    detail: input.detail,
+    category,
+    icon: CATEGORY_CATALOG.find((c) => c.name === category)?.icon ?? detected.icon,
+    monthKey: getCurrentMonthKey(),
+    date: now.toLocaleDateString("ur-PK"),
+    time: now.toLocaleTimeString("ur-PK", { hour: "2-digit", minute: "2-digit" }),
+    timestamp: now.getTime(),
+    updatedAt: now.getTime(),
+    account: normalizeAccount(input.account),
+  };
+}
+
+export function useKhata() {
+  const [data, dispatch] = useReducer(khataReducer, undefined, loadData);
+  /* Lets `removeEntry` read the current ledger while keeping a stable identity
+     (it is passed down to memoised children). Updated in an effect, not during
+     render, so the record snapshot a deletion queues is always the committed
+     one. */
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+  const [prefs, setPrefs] = useState<Prefs>(() => loadPrefs());
+  const [activeMonth, setActiveMonth] = useState<string>(() => getCurrentMonthKey());
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    persistData(data);
+  }, [data]);
+  useEffect(() => {
+    persistPrefs(prefs);
+  }, [prefs]);
+
+  /** Single entry point for every new record — validates before committing. */
+  const addEntry = useCallback((input: AddEntryInput): boolean => {
+    const result = validateAmount(input.amount);
+    if (!result.ok) {
+      setValidationError(result.message);
+      return false;
+    }
+    setValidationError(null);
+    dispatch({ kind: "add", entryType: input.type, entry: makeRecord({ ...input, amount: result.value }) });
+    return true;
+  }, []);
+
+  const updateEntry = useCallback(
+    (entryType: EntryType, id: number, input: AddEntryInput): boolean => {
+      const result = validateAmount(input.amount);
+      if (!result.ok) {
+        setValidationError(result.message);
+        return false;
+      }
+      setValidationError(null);
+
+      const existingList = entryType === "income" ? data.income : data.expense;
+      const existing = existingList.find((item) => item.id === id);
+
+      const detected = detectCategory(input.detail);
+      const category = input.category || detected.name;
+      const icon = CATEGORY_CATALOG.find((c) => c.name === category)?.icon ?? detected.icon;
+      const account = normalizeAccount(input.account);
+
+      const updatedEntry: Entry = existing
+        ? {
+            ...existing,
+            amount: result.value,
+            detail: input.detail,
+            category,
+            icon,
+            account,
+            /* Edit time only ever moves forward on this device; cloud sync
+               compares it against the cloud copy (never against `timestamp`,
+               which is the transaction date). */
+            updatedAt: Math.max(
+              Date.now(),
+              (existing.updatedAt ?? existing.timestamp ?? 0) + 1,
+            ),
+          }
+        : makeRecord({ ...input, amount: result.value }, id);
+
+      dispatch({
+        kind: "update",
+        entryType,
+        id,
+        entry: updatedEntry,
+      });
+      return true;
+    },
+    [data],
+  );
+
+  const removeEntry = useCallback(
+    (entryType: EntryType, id: number) => {
+      /* Two notes, both needed (stage 4A):
+         1. the device-local marker keeps the next Cloud Download from pulling
+            the record back in immediately;
+         2. the pending deletion is what travels to Firestore as a tombstone, so
+            the other devices delete it too. It is queued here and delivered on
+            the next Cloud Upload, because deleting is a user action and must
+            never depend on the network being up right now. */
+      const entry = (
+        entryType === "income" ? dataRef.current.income : dataRef.current.expense
+      ).find((item) => item.id === id);
+      rememberDeletedIds([id]);
+      if (entry) reportQueueIssue(id, enqueuePendingDeletion(entry, entryType).queue);
+      dispatch({ kind: "remove", entryType, id });
+    },
+    [],
+  );
+  const undo = useCallback(() => {
+    /* `undo` takes the last added record *out* of the ledger — the same effect
+       the delete button has, so it needs the same two notes: the local marker
+       and a pending deletion. Undo is still undo (the record is removed); it is
+       not a restore feature, and nothing here makes a deleted record come back. */
+    const last = data.undoStack[data.undoStack.length - 1];
+    if (last) {
+      rememberDeletedIds([last.record.id]);
+      reportQueueIssue(
+        last.record.id,
+        enqueuePendingDeletion(last.record, last.type).queue,
+      );
+    }
+    dispatch({ kind: "undo" });
+  }, [data.undoStack]);
+  const replaceAll = useCallback(
+    (income: Entry[], expense: Entry[]) => dispatch({ kind: "replaceAll", income, expense }),
+    [],
+  );
+  const merge = useCallback(
+    (income: Entry[], expense: Entry[]) => dispatch({ kind: "merge", income, expense }),
+    [],
+  );
+  const setDigitStyle = useCallback(
+    (digitStyle: DigitStyle) => setPrefs((current) => ({ ...current, digitStyle })),
+    [],
+  );
+  /* Stable callback: it is passed to memoised overlays, and a fresh reference
+     each render made every keystroke re-render the whole notepad subtree. */
+  const clearValidationError = useCallback(() => setValidationError(null), []);
+  /* Voice feedback settings — deliberately part of `Prefs`, so they persist
+     with the rest of the display preferences instead of a separate store. */
+  const setTtsEnabled = useCallback(
+    (ttsEnabled: boolean) => setPrefs((current) => ({ ...current, ttsEnabled })),
+    [],
+  );
+  const setTtsRate = useCallback(
+    (ttsRate: number) => setPrefs((current) => ({ ...current, ttsRate: clampTtsRate(ttsRate) })),
+    [],
+  );
+  /**
+   * Remembers that a monthly rule already produced its entry for `monthKey`.
+   *
+   * Without it the rule was only matched against the records still present, so
+   * deleting an auto-added entry made the mirror effect add it straight back.
+   * The list lives in `prefs.appliedRecurring`, which already existed for this
+   * purpose but was never written.
+   */
+  const markRecurringApplied = useCallback((monthKey: string, keys: string[]) => {
+    if (keys.length === 0) return;
+    setPrefs((current) => ({
+      ...current,
+      appliedRecurring: {
+        ...current.appliedRecurring,
+        [monthKey]: Array.from(
+          new Set([...(current.appliedRecurring[monthKey] ?? []), ...keys]),
+        ),
+      },
+    }));
+  }, []);
+
+  /* derived ------------------------------------------------------------- */
+  const totals = useMemo(() => getTotals(data, activeMonth), [data, activeMonth]);
+  const monthOptions = useMemo(() => collectMonthKeys(data), [data]);
+  const breakdown = useMemo(() => getCategoryBreakdown(data, activeMonth), [data, activeMonth]);
+  const trend = useMemo(() => getMonthlySeries(data, activeMonth, 6), [data, activeMonth]);
+  const knownCategories = useMemo(() => {
+    const set = new Set<string>(CATEGORY_CATALOG.map((c) => c.name));
+    [...data.income, ...data.expense].forEach((e) => set.add(e.category));
+    return Array.from(set);
+  }, [data]);
+  const alertsFor = useCallback(
+    (budgets: Budget[]) => getBudgetAlerts(data, activeMonth, budgets),
+    [data, activeMonth],
+  );
+
+  return {
+    data,
+    prefs,
+    activeMonth,
+    setActiveMonth,
+    monthName: formatMonthName(activeMonth),
+    isCurrentMonth: activeMonth === getCurrentMonthKey(),
+    validationError,
+    clearValidationError,
+    addEntry,
+    updateEntry,
+    removeEntry,
+    undo,
+    replaceAll,
+    merge,
+    setDigitStyle,
+    setTtsEnabled,
+    setTtsRate,
+    markRecurringApplied,
+    totals,
+    monthOptions,
+    breakdown,
+    trend,
+    knownCategories,
+    alertsFor,
+  };
+}

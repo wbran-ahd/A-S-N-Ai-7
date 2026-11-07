@@ -1,0 +1,108 @@
+name: Deploy to Firebase
+
+# One-tap production deploy, meant to be run from the GitHub mobile app:
+#   Actions → "Deploy to Firebase" → Run workflow
+#
+# Deliberately manual-only. Nothing here triggers on push, so merging code can
+# never publish to production by accident — deploys stay a deliberate act.
+#
+# `hosting-only` is the lightweight path: frontend build, then
+# `firebase deploy --only hosting`. It never touches Firestore rules.
+#
+# Setup (once): add the repository secret FIREBASE_SERVICE_ACCOUNT
+# (Settings → Secrets and variables → Actions). The value is the service-account
+# JSON from Firebase Console → Project settings → Service accounts. A
+# service-account file bypasses every Firestore rule, so it must live only in
+# GitHub's secret store — never in the repo, a commit, or a chat message.
+on:
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: What to deploy
+        required: true
+        type: choice
+        default: hosting-and-rules
+        options:
+          - hosting-and-rules
+          - hosting-only
+          - rules-only
+          - everything
+
+# Two production deploys must never overlap, and a queued one should finish
+# rather than be cancelled halfway through.
+concurrency:
+  group: firebase-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    # Gives each run a deployment record (and a URL) in the GitHub UI.
+    environment: production
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      DEPLOY_TARGETS: ${{ inputs.targets }}
+      # Pinned to the v15 major line; the CLI is fetched on demand, so no
+      # firebase-tools dependency is added to the project.
+      FIREBASE_CLI: npx --yes firebase-tools@15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # firebase-tools (fetched through npx) needs a current Node runtime.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check deploy credentials are configured
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::Repository secret FIREBASE_SERVICE_ACCOUNT is not set."
+            echo "Add it under Settings → Secrets and variables → Actions, then run this workflow again."
+            exit 1
+          fi
+
+      - name: Authenticate to Firebase
+        run: |
+          creds="$RUNNER_TEMP/firebase-service-account.json"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$creds"
+          chmod 600 "$creds"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$creds" >> "$GITHUB_ENV"
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Ledger logic tests
+        run: bun run test
+
+      - name: Build frontend
+        run: bun run build
+
+      - name: Deploy
+        run: |
+          case "$DEPLOY_TARGETS" in
+            hosting-and-rules)     only="hosting,firestore:rules" ;;
+            hosting-only)          only="hosting" ;;
+            rules-only)            only="firestore:rules" ;;
+            # Index deploys can drop indexes the live app relies on, which is
+            # why this is not part of the default.
+            everything)            only="firestore:rules,firestore:indexes,hosting" ;;
+            *) echo "::error::Unknown targets '$DEPLOY_TARGETS'"; exit 1 ;;
+          esac
+          echo "Deploying: $only"
+          # --force skips interactive confirmations, which a CI run cannot answer.
+          $FIREBASE_CLI deploy --only "$only" --force
+
+      - name: Remove credentials
+        if: ${{ always() }}
+        run: rm -f "$RUNNER_TEMP/firebase-service-account.json"

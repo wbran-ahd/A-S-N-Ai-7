@@ -1,0 +1,234 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // A record's month bucket is always `YYYY-MM`. The old check only looked at
+    // the length, so `"2026"` was accepted and then blocked every download on
+    // every device (the client validator requires the real shape).
+    function isValidMonthKey(value) {
+      return value is string && value.matches('^[0-9]{4}-[0-9]{2}$');
+    }
+
+    // Stage 4A tombstones. Optional: documents written before this stage carry
+    // none of these fields and stay valid. A document that claims to be deleted
+    // must describe the deletion completely.
+    function hasValidTombstoneFields() {
+      return (!('deleted' in incoming()) || incoming().deleted is bool)
+        && (!('deletedAt' in incoming()) || incoming().deletedAt is number)
+        && (!('deletedEventId' in incoming())
+            || (incoming().deletedEventId is string && incoming().deletedEventId.size() > 0 && incoming().deletedEventId.size() <= 128))
+        && (!('deletedVersion' in incoming()) || incoming().deletedVersion is number)
+        && (!('deletedBy' in incoming())
+            || (incoming().deletedBy is string && incoming().deletedBy.size() <= 128))
+        && (!('deleted' in incoming()) || incoming().deleted == false
+            || (incoming().deletedAt is number && incoming().deletedEventId is string));
+    }
+
+    // A tombstone is final: no update may turn it back into an active record.
+    // This is what stops a stale (or old) client from resurrecting a deletion;
+    // there is no restore feature, so nothing legitimate needs `deleted: false`.
+    function isNotResurrectingTombstone() {
+      return !('deleted' in existing())
+        || existing().deleted == false
+        || ('deleted' in incoming() && incoming().deleted == true);
+    }
+
+    // Stage 4C-A party tombstones (`users/{uid}/parties/{id}`).
+    // A party is deleted *in place*: its own fields stay verbatim and
+    // `deleted`, `deletedAt`, `deletedBy` are added. Every field is optional
+    // (documents written before this stage carry none of them), but a party
+    // that claims to be deleted must say when it happened, and `deletedBy` is
+    // an opaque device id capped at 128 characters.
+    function hasValidPartyTombstoneFields() {
+      return (!('deleted' in incoming()) || incoming().deleted is bool)
+        && (!('deletedAt' in incoming()) || incoming().deletedAt is number)
+        && (!('deletedBy' in incoming())
+            || (incoming().deletedBy is string && incoming().deletedBy.size() <= 128))
+        && (!('deleted' in incoming()) || incoming().deleted == false
+            || ('deletedAt' in incoming() && incoming().deletedAt is number && incoming().deletedAt > 0));
+    }
+
+    // A party tombstone is final: an ordinary update may not turn it back into
+    // an active party (there is no restore feature), so an upsert from a stale
+    // device or an old backup file is refused by the rules themselves.
+    function isNotResurrectingPartyTombstone() {
+      return !('deleted' in existing())
+        || existing().deleted == false
+        || ('deleted' in incoming() && incoming().deleted == true);
+    }
+
+    // Test connection doc for initial boot verification
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // User profile
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && incoming().id == userId
+        && (!('name' in incoming()) || (incoming().name is string && incoming().name.size() <= 100))
+        && (!('email' in incoming()) || (incoming().email is string && incoming().email.size() <= 200))
+        && (!('isAnonymous' in incoming()) || incoming().isAnonymous is bool);
+      allow update: if isOwner(userId)
+        && incoming().id == existing().id
+        && (!('name' in incoming()) || (incoming().name is string && incoming().name.size() <= 100))
+        && (!('email' in incoming()) || (incoming().email is string && incoming().email.size() <= 200))
+        && (!('isAnonymous' in incoming()) || incoming().isAnonymous is bool);
+      allow delete: if isOwner(userId);
+
+      // Records subcollection
+      match /records/{recordId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && isValidId(recordId)
+          && incoming().localId is number
+          && (incoming().kind == 'income' || incoming().kind == 'expense')
+          && incoming().amount is number
+          && isValidMonthKey(incoming().monthKey)
+          && hasValidTombstoneFields()
+          && incoming().timestamp is number
+          && (!('detail' in incoming()) || (incoming().detail is string && incoming().detail.size() <= 500))
+          && (!('category' in incoming()) || (incoming().category is string && incoming().category.size() <= 100))
+          && (!('icon' in incoming()) || (incoming().icon is string && incoming().icon.size() <= 100))
+          && (!('account' in incoming()) || (incoming().account in ['cash', 'bank']));
+        allow update: if isOwner(userId)
+          && isValidId(recordId)
+          && incoming().localId == existing().localId
+          && (incoming().kind == 'income' || incoming().kind == 'expense')
+          && incoming().amount is number
+          && isValidMonthKey(incoming().monthKey)
+          && hasValidTombstoneFields()
+          && isNotResurrectingTombstone()
+          && incoming().timestamp is number
+          && (!('detail' in incoming()) || (incoming().detail is string && incoming().detail.size() <= 500))
+          && (!('category' in incoming()) || (incoming().category is string && incoming().category.size() <= 100))
+          && (!('icon' in incoming()) || (incoming().icon is string && incoming().icon.size() <= 100))
+          && (!('account' in incoming()) || (incoming().account in ['cash', 'bank']));
+        allow delete: if isOwner(userId) && isValidId(recordId);
+      }
+
+      // Settings doc
+      match /settings/{docId} {
+        allow get: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && (!('geminiKey' in incoming()) || (incoming().geminiKey is string && incoming().geminiKey.size() <= 200));
+        allow update: if isOwner(userId)
+          && (!('geminiKey' in incoming()) || (incoming().geminiKey is string && incoming().geminiKey.size() <= 200));
+        allow delete: if isOwner(userId);
+      }
+
+      // Sync concurrency state
+      match /sync/{docId} {
+        allow get: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && incoming().version is number;
+        allow delete: if isOwner(userId);
+      }
+
+      // Customer / supplier book — merged in phase 3. These two subcollections
+      // were already written by `use-parties` but had no rules at all, so
+      // default-deny silently blocked every cloud write.
+      match /parties/{partyId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && isValidId(partyId)
+          && incoming().id is number
+          && incoming().name is string && incoming().name.size() >= 2 && incoming().name.size() <= 100
+          && incoming().phone is string && incoming().phone.size() <= 20
+          && incoming().kind in ['customer', 'supplier']
+          && incoming().createdAt is number
+          && (!('note' in incoming()) || incoming().note == null
+              || (incoming().note is string && incoming().note.size() <= 500))
+          && hasValidPartyTombstoneFields();
+        allow update: if isOwner(userId)
+          && isValidId(partyId)
+          && incoming().id == existing().id
+          && incoming().name is string && incoming().name.size() >= 2 && incoming().name.size() <= 100
+          && incoming().phone is string && incoming().phone.size() <= 20
+          && incoming().kind in ['customer', 'supplier']
+          && incoming().createdAt == existing().createdAt
+          && (!('note' in incoming()) || incoming().note == null
+              || (incoming().note is string && incoming().note.size() <= 500))
+          && hasValidPartyTombstoneFields()
+          && isNotResurrectingPartyTombstone()
+          // Stage 4C-D: once a party is a tombstone its deletion time is final
+          // too. A stale client may re-write the very same tombstone
+          // (idempotent) but never rewrite *when* the party was deleted.
+          && (!('deleted' in existing()) || existing().deleted == false
+              || (('deletedAt' in existing()) && ('deletedAt' in incoming())
+                  && incoming().deletedAt == existing().deletedAt));
+        // Stage 4C-D: parties are never hard-deleted. Deletion is the in-place
+        // tombstone written by the update rule above, which keeps the party's
+        // name, kind and timestamps so its transactions stay readable. With an
+        // owner delete rule a client could erase the tombstone and re-create
+        // the party as active — the one resurrection path an update rule can
+        // never see (proven by the stage 4C-A emulator audit, section A14).
+      }
+
+      match /partyTxns/{txnId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && isValidId(txnId)
+          && incoming().id is number
+          && incoming().partyId is number
+          && incoming().kind in ['charge', 'payment']
+          && incoming().amount is number
+          && incoming().account in ['cash', 'bank']
+          && incoming().timestamp is number
+          && incoming().note is string && incoming().note.size() <= 500
+          && incoming().date is string && incoming().date.size() <= 50
+          && incoming().time is string && incoming().time.size() <= 50
+          // Stage 4C-D: the customer/supplier classification (stage 4C-C) is
+          // optional — documents written before it carry none — but a value
+          // that is present must be one of the two real kinds, otherwise a
+          // typo would silently reclassify the party's books.
+          && (!('partyKind' in incoming()) || incoming().partyKind in ['customer', 'supplier']);
+        allow update: if isOwner(userId)
+          && isValidId(txnId)
+          && incoming().id == existing().id
+          && incoming().partyId == existing().partyId
+          && incoming().kind in ['charge', 'payment']
+          && incoming().amount is number
+          && incoming().account in ['cash', 'bank']
+          && incoming().timestamp == existing().timestamp
+          && incoming().note is string && incoming().note.size() <= 500
+          && incoming().date is string && incoming().date.size() <= 50
+          && incoming().time is string && incoming().time.size() <= 50
+          && (!('partyKind' in incoming()) || incoming().partyKind in ['customer', 'supplier']);
+        // Stage 4C-D: the transaction delete rule is deliberately unchanged.
+        // The app's `removeTxn` feature hard-deletes its own entry and that
+        // deletion model needs an explicit product decision (undo / tombstone
+        // / owner-only) before it may be restricted here.
+        allow delete: if isOwner(userId) && isValidId(txnId);
+      }
+    }
+
+  }
+}
