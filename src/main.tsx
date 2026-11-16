@@ -48,6 +48,7 @@ function initObservability() {
 // Lazy load route components for better code splitting
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const MercuryEmail = lazy(() => import("./pages/MercuryEmail.tsx"));
 
 // روٹ لوڈنگ فال بیک، error boundaries اور RouteSyncer اب RoutePrimitives.tsx
 // میں ہیں — یہ فائل صرف روٹس اور نیویگیشن وائرنگ رکھتی ہے
@@ -65,6 +66,7 @@ createRoot(document.getElementById("root")!).render(
           <Routes>
             {/* The ledger is the entry point: no activation screen, no gate. */}
             <Route path="/" element={<Dashboard />} />
+            <Route path="/mercury" element={<MercuryEmail />} />
             {/* Kept so old links, bookmarks and the PWA shortcut still land. */}
             <Route path="/dashboard" element={<Navigate to="/" replace />} />
             <Route path="*" element={<NotFound />} />
