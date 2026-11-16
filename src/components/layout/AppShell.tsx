@@ -95,9 +95,9 @@ export function AppShell({
               setNavOpen(false);
             }}
             aria-current={active ? "page" : undefined}
-            className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-right text-sm font-bold transition ${
+            className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-right text-sm font-bold transition glass-nav-item ${
               active
-                ? "border-sky-400/40 bg-sky-500/15 text-sky-200"
+                ? "active border-sky-400/40 bg-sky-500/15 text-sky-200"
                 : "border-transparent text-white/65 hover:border-white/10 hover:bg-white/5 hover:text-white"
             }`}
           >
@@ -111,7 +111,7 @@ export function AppShell({
 
   const userLabel = user?.name || "مہمان صارف";
   const renderUserBlock = (
-    <div className="flex items-center gap-2.5 border-t border-white/10 pt-3">
+    <div className="flex items-center gap-2.5 border-t border-white/10 pt-3 glass-card-dark p-3 rounded-2xl border border-white/10">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-sky-400/40 bg-sky-500/15 text-sm font-bold text-sky-200">
         {userLabel.trim().charAt(0).toUpperCase()}
       </span>
@@ -125,20 +125,22 @@ export function AppShell({
   );
 
   const renderSummaryBlock = (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-      <p className="font-sans text-[10px] uppercase tracking-widest text-white/40">
-        {isCurrentMonth ? t("currentMonth") : t("archivedMonth")}
-      </p>
-      <p className="nastaliq mt-0.5 text-xs text-white/60">{monthName}</p>
-      <p className="mt-1.5 text-xl font-bold text-white">
-        {formatNumber(totals.balance, digitStyle)}
-        <span className="nastaliq mr-1 text-xs font-normal text-white/50">روپے</span>
-      </p>
-      <div className="mt-2 flex items-center justify-between font-sans text-[11px]">
-        <span className="text-emerald-300/90">
+    <div className="flex flex-col gap-2">
+      <div className="summary-card income rounded-2xl border border-white/10 bg-white/5 p-3">
+        <p className="font-sans text-[10px] uppercase tracking-widest text-emerald-300/90">
+          {t("currentMonth")}
+        </p>
+        <p className="nastaliq mt-0.5 text-xs text-white/60">{monthName}</p>
+        <p className="mt-1.5 text-xl font-bold text-white">
+          {formatNumber(totals.balance, digitStyle)}
+          <span className="nastaliq mr-1 text-xs font-normal text-white/50">روپے</span>
+        </p>
+      </div>
+      <div className="flex items-center justify-between font-sans text-[11px] mt-2">
+        <span className="summary-card income text-emerald-300/90 flex-1 py-2 rounded-lg border border-emerald-300/10">
           ↑ {formatNumber(totals.totalIncome, digitStyle)}
         </span>
-        <span className="text-rose-300/90">
+        <span className="summary-card expense text-rose-300/90 flex-1 py-2 rounded-lg border border-rose-300/10">
           ↓ {formatNumber(totals.totalExpense, digitStyle)}
         </span>
       </div>
@@ -151,7 +153,7 @@ export function AppShell({
 
       <div className="relative z-10 flex min-h-dvh w-full">
         {/* Sidebar — desktop */}
-        <aside className="hidden w-64 shrink-0 flex-col gap-5 border-l border-white/10 bg-black/25 p-4 backdrop-blur-xl lg:flex">
+        <aside className="hidden w-64 shrink-0 flex-col gap-5 border-l border-white/10 bg-black/25 p-4 backdrop-blur-xl lg:flex glass-card-dark">
           {renderBrand}
           {renderNavList}
           <div className="mt-auto flex flex-col gap-3">
@@ -162,13 +164,13 @@ export function AppShell({
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* Top bar — mobile */}
-          <header className="flex items-center justify-between gap-3 border-b border-white/10 bg-slate-950/70 px-4 pb-3 pt-[calc(env(safe-area-inset-top)_+_0.75rem)] backdrop-blur-xl lg:hidden">
+          <header className="flex items-center justify-between gap-3 border-b border-white/10 bg-slate-950/70 px-4 pb-3 pt-[calc(env(safe-area-inset-top)_+_0.75rem)] backdrop-blur-xl lg:hidden glass-card-dark">
             {renderBrand}
             <button
               type="button"
               onClick={() => setNavOpen(true)}
               aria-label="مینو کھولیں"
-              className="rounded-xl border border-white/15 p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
+              className="rounded-xl border border-white/15 p-2 text-white/70 transition hover:bg-white/10 hover:text-white glass-btn-secondary"
             >
               <Menu className="size-5" />
             </button>
