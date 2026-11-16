@@ -196,7 +196,10 @@ body::before {
 
 /* Glass Panel - Main Container */
 .glass-panel {
-  @apply glass;
+  background: var(--card);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border);
   border-radius: 2rem;
   box-shadow:
     0 4px 24px -4px rgba(0, 0, 0, 0.06),
@@ -213,7 +216,10 @@ body::before {
 
 /* Glass Card - Interactive Elements */
 .glass-card {
-  @apply glass;
+  background: var(--card);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border);
   border-radius: 1.5rem;
   box-shadow:
     0 2px 12px -2px rgba(0, 0, 0, 0.05),
@@ -248,7 +254,10 @@ body::before {
 
 /* Glass Input */
 .glass-input {
-  @apply glass;
+  background: var(--card);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border);
   border-radius: 1rem;
   color: var(--foreground);
   transition: all 0.2s ease;
@@ -290,7 +299,10 @@ body::before {
 
 /* Glass Button - Secondary */
 .glass-btn-secondary {
-  @apply glass;
+  background: var(--card);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border);
   color: var(--foreground);
   border-radius: 1rem;
   transition: all 0.2s ease;
@@ -332,7 +344,10 @@ body::before {
 
 /* Glass Nav Item */
 .glass-nav-item {
-  @apply glass;
+  background: var(--card);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border);
   border-radius: 1rem;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -376,7 +391,16 @@ body::before {
 
 /* Summary Cards with Gradient Tops */
 .summary-card {
-  @apply glass-card;
+  background: var(--card);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 2px 12px -2px rgba(0, 0, 0, 0.05),
+    0 8px 24px -8px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 }
