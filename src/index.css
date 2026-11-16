@@ -42,395 +42,484 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* CHANGE VALUES FOR THEME */
+/* ============================================================
+   Mercury OS Design System — Ethereal, Fluid, Humane
+   Sauti Baqaya (صوتی بقایا) — Voice Finance Assistant
+   ============================================================ */
+
+/* Mercury OS Color Palette - Light Mode (Primary) */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 1rem;
+  --background: transparent;
+  --foreground: oklch(0.25 0.02 260);
+  --card: rgba(255, 255, 255, 0.65);
+  --card-foreground: oklch(0.25 0.02 260);
+  --popover: rgba(255, 255, 255, 0.75);
+  --popover-foreground: oklch(0.25 0.02 260);
+  --primary: oklch(0.55 0.18 250);
+  --primary-foreground: oklch(0.98 0.01 260);
+  --secondary: rgba(255, 255, 255, 0.4);
+  --secondary-foreground: oklch(0.35 0.02 260);
+  --muted: rgba(255, 255, 255, 0.35);
+  --muted-foreground: oklch(0.45 0.02 260);
+  --accent: rgba(230, 240, 255, 0.6);
+  --accent-foreground: oklch(0.35 0.02 260);
+  --destructive: oklch(0.58 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 260);
+  --border: rgba(255, 255, 255, 0.25);
+  --input: rgba(255, 255, 255, 0.3);
+  --ring: oklch(0.55 0.18 250);
+  --chart-1: oklch(0.55 0.18 250);
+  --chart-2: oklch(0.62 0.15 160);
+  --chart-3: oklch(0.48 0.12 280);
+  --chart-4: oklch(0.72 0.15 85);
+  --chart-5: oklch(0.68 0.18 30);
+  --sidebar: rgba(255, 255, 255, 0.2);
+  --sidebar-foreground: oklch(0.25 0.02 260);
+  --sidebar-primary: oklch(0.55 0.18 250);
+  --sidebar-primary-foreground: oklch(0.98 0.01 260);
+  --sidebar-accent: rgba(230, 240, 255, 0.5);
+  --sidebar-accent-foreground: oklch(0.25 0.02 260);
+  --sidebar-border: rgba(255, 255, 255, 0.18);
+  --sidebar-ring: oklch(0.55 0.18 250);
 }
 
+/* Dark Mode - Deep Space Mercury */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: transparent;
+  --foreground: oklch(0.95 0.01 260);
+  --card: rgba(20, 25, 45, 0.65);
+  --card-foreground: oklch(0.95 0.01 260);
+  --popover: rgba(20, 25, 45, 0.8);
+  --popover-foreground: oklch(0.95 0.01 260);
+  --primary: oklch(0.65 0.18 250);
+  --primary-foreground: oklch(0.98 0.01 260);
+  --secondary: rgba(255, 255, 255, 0.08);
+  --secondary-foreground: oklch(0.85 0.01 260);
+  --muted: rgba(255, 255, 255, 0.06);
+  --muted-foreground: oklch(0.65 0.01 260);
+  --accent: rgba(50, 60, 100, 0.5);
+  --accent-foreground: oklch(0.95 0.01 260);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 260);
+  --border: rgba(255, 255, 255, 0.12);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: oklch(0.65 0.18 250);
+  --chart-1: oklch(0.65 0.18 250);
+  --chart-2: oklch(0.6 0.15 160);
+  --chart-3: oklch(0.58 0.12 280);
+  --chart-4: oklch(0.7 0.15 85);
+  --chart-5: oklch(0.65 0.18 30);
+  --sidebar: rgba(15, 20, 40, 0.3);
+  --sidebar-foreground: oklch(0.95 0.01 260);
+  --sidebar-primary: oklch(0.65 0.18 250);
+  --sidebar-primary-foreground: oklch(0.98 0.01 260);
+  --sidebar-accent: rgba(50, 60, 100, 0.4);
+  --sidebar-accent-foreground: oklch(0.95 0.01 260);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: oklch(0.65 0.18 250);
 }
 
 /* ============================================================
-   صوتی بقیہ (Sauti Baqaya) — Voice Finance Assistant styles
+   Global Typography - Urdu + Latin Harmony
    ============================================================ */
-.sauti-app {
-  font-family: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "Noto Serif Arabic", "Segoe UI", "Arial", serif;
-  background-color: #0f172a;
-  color: #f3f4f6;
-  overflow-x: hidden;
-  position: relative;
-  /* Own stacking context so the negative-z ambient mesh stays visible */
-  isolation: isolate;
-}
-
-/* Type helpers. `.sauti-app` sets Nastaliq across the whole tree; these rules
-   are declared after it (same specificity) so a section can opt in or out —
-   the landing page body copy uses `.sans`, Urdu display text uses `.nastaliq`. */
-.sans {
-  /* Latin glyphs get the UI font; Urdu glyphs fall through to the loaded
-     Nastaliq webfont instead of relying on a system-installed Arabic font. */
-  font-family: "Segoe UI", ui-sans-serif, system-ui, -apple-system,
+html {
+  font-family: "Inter", "SF Pro Display", ui-sans-serif, system-ui, -apple-system,
     "Noto Nastaliq Urdu", "Noto Naskh Arabic", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
+body {
+  @apply bg-background text-foreground;
+  background:
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(244, 232, 235, 0.8) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(214, 220, 230, 0.8) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 60% at 50% 50%, rgba(227, 235, 247, 0.6) 0%, transparent 70%),
+    linear-gradient(135deg, #f4e8eb 0%, #e3ebf7 50%, #d6dce6 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+/* Noise/Grain Overlay for Spatial Feel */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.04;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+.dark body {
+  background:
+    radial-gradient(ellipse 80% 50% at 10% 0%, rgba(60, 45, 80, 0.4) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 100%, rgba(30, 35, 55, 0.5) 0%, transparent 50%),
+    radial-gradient(ellipse 70% 60% at 50% 50%, rgba(40, 45, 70, 0.3) 0%, transparent 70%),
+    linear-gradient(135deg, #1a1525 0%, #1e1f2e 50%, #151825 100%);
+}
+
+.dark body::before {
+  opacity: 0.06;
+}
+
+/* Urdu Font Helpers */
 .nastaliq {
   font-family: "Noto Nastaliq Urdu", "Noto Naskh Arabic", "Noto Serif Arabic", serif;
+  font-feature-settings: "liga" 1, "calt" 1, "kern" 1;
 }
 
-/* The landing page keeps the theme but opts out of `overflow-x: hidden`:
-   that would turn the root into a scroll container, and `position: sticky`
-   only sticks against its nearest scroll container — so the navbar would
-   silently scroll away instead of sticking. */
-.sauti-page {
-  overflow-x: visible;
-}
-
-/* Urdu must render everywhere, including outside `.sauti-app` (the auth gate,
-   route loading states). Declared unlayered so it replaces Tailwind's `html`
-   preflight font; `font-*` utilities on child elements still win. */
-html {
-  font-family: "Segoe UI", ui-sans-serif, system-ui, -apple-system,
+.sans {
+  font-family: "Inter", "SF Pro Display", ui-sans-serif, system-ui, -apple-system,
     "Noto Nastaliq Urdu", "Noto Naskh Arabic", sans-serif;
 }
 
-/* Same fallback for the `font-sans` utility (used throughout the app for
-   Urdu labels): Latin glyphs are unchanged, Urdu glyphs reach the webfont. */
-.font-sans {
-  font-family: "Segoe UI", ui-sans-serif, system-ui, -apple-system,
-    "Noto Nastaliq Urdu", "Noto Naskh Arabic", sans-serif;
+/* RTL Support */
+[dir="rtl"] {
+  direction: rtl;
 }
 
-/* Ambient Mesh Gradient Background */
-.sauti-app .ambient-bg {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background:
-    radial-gradient(circle at 10% 10%, #6c859b 0%, transparent 50%),
-    radial-gradient(circle at 90% 90%, #e16c4d 0%, transparent 60%),
-    radial-gradient(circle at 20% 90%, #221724 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, #4a6fa5 0%, transparent 50%);
-  background-size: cover;
-  z-index: -2;
-  filter: blur(35px);
-  pointer-events: none;
+/* ============================================================
+   Mercury OS Glassmorphism System
+   ============================================================ */
+
+/* Base Glass - The Foundation */
+.glass {
+  background: var(--card);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border);
 }
 
-/* Glassmorphism Main Panel */
-.sauti-app .glass-panel {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(40px);
-  -webkit-backdrop-filter: blur(40px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 32px;
-  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5);
+/* Glass Panel - Main Container */
+.glass-panel {
+  @apply glass;
+  border-radius: 2rem;
+  box-shadow:
+    0 4px 24px -4px rgba(0, 0, 0, 0.06),
+    0 20px 60px -20px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
-/* Enhanced Glass Card - for metrics, widgets, panels */
-.sauti-app .glass-card {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+.dark .glass-panel {
+  box-shadow:
+    0 4px 24px -4px rgba(0, 0, 0, 0.3),
+    0 20px 60px -20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Glass Card - Interactive Elements */
+.glass-card {
+  @apply glass;
   border-radius: 1.5rem;
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 2px 12px -2px rgba(0, 0, 0, 0.05),
+    0 8px 24px -8px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.sauti-app .glass-card:hover {
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.5);
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 4px 20px -4px rgba(0, 0, 0, 0.08),
+    0 16px 40px -12px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
   transform: translateY(-2px);
 }
 
-/* Glass Card - Dark variant */
-.sauti-app .glass-card-dark {
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 1.5rem;
-  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+.dark .glass-card {
+  box-shadow:
+    0 2px 12px -2px rgba(0, 0, 0, 0.2),
+    0 8px 24px -8px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.dark .glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 4px 20px -4px rgba(0, 0, 0, 0.3),
+    0 16px 40px -12px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* Glass Input */
-.sauti-app .glass-input {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+.glass-input {
+  @apply glass;
   border-radius: 1rem;
-  color: #f3f4f6;
+  color: var(--foreground);
+  transition: all 0.2s ease;
 }
 
-.sauti-app .glass-input:focus {
+.glass-input:focus {
   outline: none;
-  border-color: rgba(14, 165, 233, 0.6);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 25%, transparent);
+  background: color-mix(in oklch, var(--card) 85%, white);
 }
 
 /* Glass Button - Primary */
-.sauti-app .glass-btn-primary {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.8), rgba(59, 130, 246, 0.6));
+.glass-btn-primary {
+  background: linear-gradient(135deg, var(--primary), color-mix(in oklch, var(--primary) 75%, var(--primary-foreground)));
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
+  color: var(--primary-foreground);
   border-radius: 1rem;
-  box-shadow: 0 4px 16px rgba(14, 165, 233, 0.3);
+  box-shadow:
+    0 4px 16px -4px color-mix(in oklch, var(--primary) 40%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
 }
 
-.sauti-app .glass-btn-primary:hover {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 1), rgba(59, 130, 246, 0.9));
+.glass-btn-primary:hover {
+  background: linear-gradient(135deg, color-mix(in oklch, var(--primary) 90%, black), var(--primary));
   border-color: rgba(255, 255, 255, 0.5);
-  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.4);
+  box-shadow:
+    0 8px 24px -6px color-mix(in oklch, var(--primary) 50%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transform: translateY(-1px);
 }
 
-/* Glass Button - Secondary */
-.sauti-app .glass-btn-secondary {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  border-radius: 1rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.glass-btn-primary:active {
+  transform: scale(0.98);
 }
 
-.sauti-app .glass-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.15);
+/* Glass Button - Secondary */
+.glass-btn-secondary {
+  @apply glass;
+  color: var(--foreground);
+  border-radius: 1rem;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.glass-btn-secondary:hover {
+  background: color-mix(in oklch, var(--card) 85%, var(--accent));
   border-color: rgba(255, 255, 255, 0.4);
   transform: translateY(-1px);
 }
 
-/* Glass Nav Item */
-.sauti-app .glass-nav-item {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.glass-btn-secondary:active {
+  transform: scale(0.98);
+}
+
+/* Glass Button - Destructive */
+.glass-btn-destructive {
+  background: linear-gradient(135deg, var(--destructive), color-mix(in oklch, var(--destructive) 75%, white));
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--destructive-foreground);
   border-radius: 1rem;
+  box-shadow:
+    0 4px 16px -4px color-mix(in oklch, var(--destructive) 30%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
 }
 
-.sauti-app .glass-nav-item:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
+.glass-btn-destructive:hover {
+  background: linear-gradient(135deg, color-mix(in oklch, var(--destructive) 90%, black), var(--destructive));
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 8px 24px -6px color-mix(in oklch, var(--destructive) 40%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
 }
 
-.sauti-app .glass-nav-item.active {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(59, 130, 246, 0.15));
-  border-color: rgba(14, 165, 233, 0.5);
-  box-shadow: 0 8px 24px -8px rgba(14, 165, 233, 0.3);
-}
-
-/* Gradient Accent Borders */
-.sauti-app .border-gradient {
-  position: relative;
+/* Glass Nav Item */
+.glass-nav-item {
+  @apply glass;
   border-radius: 1rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.sauti-app .border-gradient::before {
+.glass-nav-item:hover {
+  background: color-mix(in oklch, var(--card) 80%, var(--accent));
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.glass-nav-item.active {
+  background: linear-gradient(135deg, color-mix(in oklch, var(--primary) 18%, transparent), color-mix(in oklch, var(--primary) 10%, transparent));
+  border-color: color-mix(in oklch, var(--primary) 40%, transparent);
+  box-shadow:
+    0 4px 20px -6px color-mix(in oklch, var(--primary) 25%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  color: var(--primary);
+}
+
+/* Gradient Border Accent */
+.border-gradient {
+  position: relative;
+  border-radius: 1.5rem;
+}
+
+.border-gradient::before {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 1rem;
+  border-radius: 1.5rem;
   padding: 1px;
-  background: linear-gradient(135deg, #38bdf8, #f472b6, #a78bfa);
+  background: linear-gradient(135deg, 
+    color-mix(in oklch, var(--primary) 60%, white),
+    color-mix(in oklch, var(--chart-4) 60%, white),
+    color-mix(in oklch, var(--chart-3) 60%, white)
+  );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: destination-out;
   mask-composite: exclude;
   pointer-events: none;
 }
 
-/* Summary Card with gradient */
-.sauti-app .summary-card {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1.5rem;
-  padding: 1rem;
+/* Summary Cards with Gradient Tops */
+.summary-card {
+  @apply glass-card;
+  position: relative;
+  overflow: hidden;
 }
 
-.sauti-app .summary-card.income {
-  border-top: 4px solid #10b981;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.02));
-}
-
-.sauti-app .summary-card.expense {
-  border-top: 4px solid #ef4444;
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.02));
-}
-
-.sauti-app .summary-card.balance {
-  border-top: 4px solid #3b82f6;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.02));
-}
-
-/* Ambient mesh refinement */
-.sauti-app .ambient-bg {
-  position: fixed;
+.summary-card::before {
+  content: "";
+  position: absolute;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
-  background:
-    radial-gradient(circle at 10% 10%, rgba(108, 133, 155, 0.3) 0%, transparent 50%),
-    radial-gradient(circle at 90% 90%, rgba(225, 108, 77, 0.3) 0%, transparent 60%),
-    radial-gradient(circle at 20% 90%, rgba(34, 23, 36, 0.4) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(74, 111, 165, 0.3) 0%, transparent 50%);
-  background-size: cover;
-  z-index: -2;
-  filter: blur(45px);
-  pointer-events: none;
+  right: 0;
+  height: 4px;
+  background: var(--card-gradient);
 }
 
-/* Notepad Style Paper inside Modal */
-.sauti-app .notepad-paper {
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
-}
-
-/* Horizon Arc Canvas Visualizer */
-.sauti-app #horizon-canvas {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  height: 160px;
-  z-index: 1;
-  pointer-events: none;
-}
-
-/* Glowing Mic Button */
-.sauti-app .mic-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(15px);
-  transition: all 0.3s ease;
-}
-.sauti-app .mic-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: scale(1.05);
-}
-.sauti-app .mic-btn.listening {
-  background: rgba(14, 165, 233, 0.25);
-  border-color: rgba(14, 165, 233, 0.6);
-  box-shadow: 0 0 40px rgba(14, 165, 233, 0.5);
-  animation: sauti-pulse 1.5s infinite;
-}
-
-@keyframes sauti-pulse {
-  0% {
-    transform: scale(1);
+/* ============================================================
+   Animations - Fluid & Humane
+   ============================================================ */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
   }
-  50% {
-    transform: scale(1.08);
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
-  100% {
+}
+
+@keyframes fade-in-scale {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
     transform: scale(1);
   }
 }
 
-/* Modal Dialogs */
-.sauti-app .modal {
-  display: flex;
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
-  z-index: 50;
-  align-items: center;
-  justify-content: center;
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-/* Scrollbar styling */
-.sauti-app ::-webkit-scrollbar {
-  width: 4px;
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
-.sauti-app ::-webkit-scrollbar-track {
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-fade-in-scale {
+  animation: fade-in-scale 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* Staggered Animation Delays */
+.delay-1 { animation-delay: 0.05s; }
+.delay-2 { animation-delay: 0.1s; }
+.delay-3 { animation-delay: 0.15s; }
+.delay-4 { animation-delay: 0.2s; }
+.delay-5 { animation-delay: 0.25s; }
+.delay-6 { animation-delay: 0.3s; }
+
+/* ============================================================
+   Scrollbar - Subtle & Glass
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
   background: transparent;
 }
-.sauti-app ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--border) 60%, transparent);
+  border-radius: 3px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, var(--border) 80%, transparent);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ============================================================
+   Focus Visible - Accessible
+   ============================================================ */
+*:focus-visible {
+  outline: none;
+  ring: 2px;
+  ring-color: var(--ring);
+  ring-offset: 2px;
+  ring-offset-color: var(--background);
+}
+
+/* ============================================================
+   Selection - Branded
+   ============================================================ */
+::selection {
+  background: color-mix(in oklch, var(--primary) 25%, transparent);
+  color: var(--foreground);
+}
+
+/* ============================================================
+   Print Styles
+   ============================================================ */
+@media print {
+  .glass-panel,
+  .glass-card,
+  .glass-nav-item {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: white;
+    border: 1px solid #e5e7eb;
+    box-shadow: none;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
-  button:not([disabled]),
-  [role="button"]:not([disabled]) {
-    cursor: pointer;
-  }
+  body::before { display: none; }
+  .dark body { background: white !important; }
 }
