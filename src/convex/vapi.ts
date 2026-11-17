@@ -1,7 +1,5 @@
 "use node";
 
-import { v } from "convex/values";
-
 // Vapi backend integration: wired, not live-verified yet.
 // This file exposes the non-Convex helper surface so the backend action and any
 // future client code can stay typed even when Convex server helpers are not

@@ -1,11 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
 import { logError } from "@/lib/logger";
-import {
-  VAPI_BASE,
-  VAPI_KEY_CONFIGURED,
-  normalizePhoneNumber,
-  type VapiPlaceOutboundCallArgs,
-} from "@/convex/vapi";
+import { VAPI_BASE, normalizePhoneNumber } from "@/convex/vapi";
 
 /**
  * Vapi outbound call button.

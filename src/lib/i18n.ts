@@ -80,13 +80,13 @@ const ur = {
   settingsTitle: "جیمینی اے آئی سیٹنگز",
   saveSettings: "سیو کریں",
 
-  /* audit #7/#24 — the key copy must match reality (plaintext storage under
-     per-owner Firestore rules, never “encrypted on the server”) */
+  /* The key never leaves this device: it is read only by the browser's own
+     Gemini request. No Firestore copy, no server copy. */
   geminiKeyIntro:
-    "یہ key صرف آپ کے اکاؤنٹ کی setting میں محفوظ ہوتی ہے (انکرپٹ نہیں ہوتی)، اس لیے پہلے ایپ ایکٹیویٹ کرنا ضروری ہے، اور کسی سے شیئر نہ کریں:",
+    "یہ key صرف اسی ڈیوائس پر محفوظ ہوتی ہے (کلاؤڈ پر نہیں جاتی)؛ تجزیہ اسی key سے براہ راست Gemini پر چلتا ہے، اس لیے کسی سے شیئر نہ کریں:",
   aiKeySaved: "اے آئی کی محفوظ ہو گئی۔",
   aiKeySaveFailed: "اے آئی کی محفوظ نہیں ہو سکی — دوبارہ کوشش کریں۔",
-  aiKeyNeedsConnection: "اے آئی کی کلاؤڈ میں محفوظ کرنے کے لیے انٹرنیٹ کنکشن درکار ہے۔",
+  aiKeyNeedsConnection: "اے آئی کی اس ڈیوائس پر محفوظ ہونے کے لیے براؤزر کی اسٹوریج دستیاب ہونی چاہیے۔",
   aiKeySavedVoice: "اے آئی کی محفوظ ہو گئی ہے۔",
 } as const;
 

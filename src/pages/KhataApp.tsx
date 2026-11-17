@@ -30,6 +30,7 @@ import { useLedgerEntryActions } from "@/features/ledger/hooks/useLedgerEntryAct
 import { useRecurringEntries } from "@/features/ledger/hooks/useRecurringEntries";
 import { useOnboardingTour } from "@/features/onboarding/hooks/useOnboardingTour";
 import { useCloudSettings } from "@/features/settings/hooks/useCloudSettings";
+import { useFullBackup } from "@/features/settings/hooks/useFullBackup";
 import { StaffPinModal, type PinMode } from "@/components/sauti/StaffPinModal";
 import { Onboarding } from "@/components/sauti/Onboarding";
 import { ExportModal } from "@/components/sauti/ExportModal";
@@ -116,10 +117,14 @@ export default function SautiBaqaya() {
   );
 
   /* ---- AI Advisor ------------------------------------------------------ */
+  /* Real Gemini when this device holds a key; a labelled local analysis
+     otherwise. The hook reports which one it used, and the panel shows it. */
   const ai = useAiAdvisor({
+    monthKey: khata.activeMonth,
     monthName: khata.monthName,
     totals: khata.totals,
     breakdown: khata.breakdown,
+    history: khata.trend,
     announce,
   });
 
@@ -156,8 +161,8 @@ export default function SautiBaqaya() {
       khata.undo();
       return true;
     },
-    onAskAi: () => {
-      void ai.runAi();
+    onAskAi: (question?: string) => {
+      void ai.runAi(question);
     },
     ttsEnabled: khata.prefs.ttsEnabled,
     ttsRate: khata.prefs.ttsRate,
@@ -224,6 +229,9 @@ export default function SautiBaqaya() {
     speak: voice.speak,
     closePanel: () => setSettingsOpen(false),
   });
+  /* ---- Account-free recovery: one portable file with everything --------- */
+  const fullBackup = useFullBackup();
+
   const {
     apiKeyDraft,
     setApiKeyDraft,
@@ -297,6 +305,7 @@ export default function SautiBaqaya() {
       setNavOpen={setNavOpen}
       isStaff={staff.isStaff}
       user={user}
+      cloudActive={sync.isAuthenticated}
       isCurrentMonth={khata.isCurrentMonth}
       monthName={khata.monthName}
       totals={khata.totals}
@@ -397,9 +406,9 @@ export default function SautiBaqaya() {
         alerts={alerts}
         digitStyle={khata.prefs.digitStyle}
         aiHasKey={sync.aiHasKey}
-        aiRemaining={sync.aiRemaining}
+        aiSource={ai.aiSource}
         aiBusy={ai.aiBusy}
-        aiError={null}
+        aiError={ai.aiError}
         insight={ai.insight}
         onRunAi={() => void ai.runAi()}
         onExportPdf={exportReportPdf}
@@ -423,6 +432,10 @@ export default function SautiBaqaya() {
         onExportCsv={exportData}
         onImportFile={handleImportFile}
         importMsg={importMsg}
+        onExportFullBackup={fullBackup.exportFullBackup}
+        onImportFullBackup={fullBackup.handleRestoreFile}
+        fullBackupMsg={fullBackup.fullBackupMsg}
+        restoringBackup={fullBackup.restoring}
         isAuthenticated={sync.isAuthenticated}
         syncBusy={sync.busy}
         cloudVersion={sync.cloudVersion}

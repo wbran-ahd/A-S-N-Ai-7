@@ -27,6 +27,8 @@ interface AppShellProps {
   setNavOpen: (open: boolean) => void;
   isStaff: boolean;
   user: { name?: string | null } | null;
+  /** True only when a cloud session is actually live (not anonymous-offline). */
+  cloudActive: boolean;
   isCurrentMonth: boolean;
   monthName: string;
   totals: {
@@ -45,6 +47,7 @@ export function AppShell({
   setNavOpen,
   isStaff,
   user,
+  cloudActive,
   isCurrentMonth,
   monthName,
   totals,
@@ -118,7 +121,7 @@ export function AppShell({
       <span className="min-w-0 flex-1 leading-tight">
         <span className="block truncate text-xs font-bold text-white/85">{userLabel}</span>
         <span className="block truncate font-sans text-[10px] text-white/40">
-          کلاؤڈ سینک فعال
+          {cloudActive ? "کلاؤڈ سینک فعال" : "ڈیٹا صرف اسی ڈیوائس پر"}
         </span>
       </span>
     </div>

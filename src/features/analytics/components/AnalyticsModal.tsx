@@ -24,7 +24,8 @@ interface AnalyticsModalProps {
   alerts: Array<{ category: string; spent: number; limit: number }>;
   digitStyle: DigitStyle;
   aiHasKey: boolean;
-  aiRemaining: number;
+  /** Which engine produced the current insight; `null` before the first run. */
+  aiSource: "gemini" | "local" | null;
   aiBusy: boolean;
   aiError: string | null;
   insight: AiInsight | null;
@@ -43,7 +44,7 @@ export function AnalyticsModal({
   alerts,
   digitStyle,
   aiHasKey,
-  aiRemaining,
+  aiSource,
   aiBusy,
   aiError,
   insight,
@@ -116,7 +117,7 @@ export function AnalyticsModal({
         className="w-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 py-2.5 rounded-xl text-xs font-bold transition disabled:opacity-50"
       >
         <i className="fas fa-wand-magic-sparkles ml-1"></i>{" "}
-        {aiBusy ? t("aiRunning") : t("aiAnalyze")}
+        {aiBusy ? t("aiRunning") : aiHasKey ? t("aiAnalyze") : "تجزیہ کروائیں (مقامی)"}
       </button>
 
       {/* The same numbers the panel shows, in shareable formats */}
@@ -137,14 +138,17 @@ export function AnalyticsModal({
         </button>
       </div>
 
+      {/* Honest status: a saved key means a real model runs; without one the
+          panel says so instead of claiming an AI analysed the books. */}
       {!aiHasKey && (
-        <p className="text-[11px] text-white/50 mt-2">
-          اے آئی کے لیے ⚙️ سیٹنگز میں Gemini API Key درج کریں۔
+        <p className="text-[11px] text-white/50 mt-2 leading-5">
+          حقیقی اے آئی تجزیے کے لیے ⚙️ سیٹنگز میں اپنی Gemini API Key درج کریں۔ تب تک یہاں
+          مقامی تجزیہ (آپ کے اعداد سے) دستیاب ہے۔
         </p>
       )}
       {aiHasKey && (
-        <p className="text-[11px] text-white/40 mt-2">
-          آج بقیا اے آئی کوٹہ: {aiRemaining}
+        <p className="text-[11px] text-white/50 mt-2 leading-5">
+          تجزیہ آپ ہی کی Gemini Key سے چلے گا — key صرف اسی ڈیوائس پر محفوظ ہے۔
         </p>
       )}
 
@@ -152,26 +156,35 @@ export function AnalyticsModal({
 
       {insight && (
         <div className="bg-sky-950/40 border border-sky-500/30 rounded-xl p-3 mt-3 text-xs text-white/85 space-y-1">
-          <div className="flex justify-between items-center">
-            <span className="font-bold text-sky-200">🤖 {insight.title}</span>
-            <span
-              className={`px-2 py-0.5 rounded-full border text-[10px] ${
-                insight.riskLevel === "unavailable"
-                  ? "bg-slate-500/20 text-slate-300 border-slate-400/40"
+          <div className="flex items-center justify-between gap-2">
+            <span className="min-w-0 font-bold text-sky-200">
+              {aiSource === "gemini" ? "🤖" : "📊"} {insight.title}
+            </span>
+            <span className="flex shrink-0 items-center gap-1">
+              {aiSource && (
+                <span className="text-[10px] text-white/50">
+                  {aiSource === "gemini" ? "Gemini" : "مقامی تجزیہ"}
+                </span>
+              )}
+              <span
+                className={`px-2 py-0.5 rounded-full border text-[10px] ${
+                  insight.riskLevel === "unavailable"
+                    ? "bg-slate-500/20 text-slate-300 border-slate-400/40"
+                    : insight.riskLevel === "high"
+                      ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                      : insight.riskLevel === "medium"
+                        ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                        : "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                }`}
+              >
+                {insight.riskLevel === "unavailable"
+                  ? "دستیاب نہیں"
                   : insight.riskLevel === "high"
-                    ? "bg-rose-500/20 text-rose-300 border-rose-500/40"
+                    ? "خطرہ زیادہ"
                     : insight.riskLevel === "medium"
-                      ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                      : "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-              }`}
-            >
-              {insight.riskLevel === "unavailable"
-                ? "دستیاب نہیں"
-                : insight.riskLevel === "high"
-                  ? "خطرہ زیادہ"
-                  : insight.riskLevel === "medium"
-                    ? "انتہائی"
-                    : "ٹھیک ہے"}
+                      ? "انتہائی"
+                      : "ٹھیک ہے"}
+              </span>
             </span>
           </div>
           <p>{insight.insight}</p>

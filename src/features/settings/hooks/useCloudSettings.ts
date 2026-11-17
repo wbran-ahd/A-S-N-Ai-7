@@ -58,11 +58,8 @@ export function useCloudSettings({
       closePanel();
       return;
     }
-    if (!isAuthenticated) {
-      setStatus(t("aiKeyNeedsConnection"));
-      closePanel();
-      return;
-    }
+    /* No sign-in gate: the key is stored on this device only, so an offline
+       or signed-out shop can still configure its own key. */
     const ok = await saveGeminiKey(key);
     localStorage.removeItem(LEGACY_API_KEY_STORAGE);
     closePanel();

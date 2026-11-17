@@ -38,6 +38,11 @@ interface SettingsModalProps {
   onExportCsv: () => void;
   onImportFile: (event: React.ChangeEvent<HTMLInputElement>) => void;
   importMsg: string;
+  /** Full portable backup (ledger + prefs + parties) — the account-free recovery path. */
+  onExportFullBackup: () => void;
+  onImportFullBackup: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  fullBackupMsg: string;
+  restoringBackup: boolean;
   isAuthenticated: boolean;
   syncBusy: boolean;
   cloudVersion: number | string;
@@ -79,6 +84,10 @@ export function SettingsModal({
   onExportCsv,
   onImportFile,
   importMsg,
+  onExportFullBackup,
+  onImportFullBackup,
+  fullBackupMsg,
+  restoringBackup,
   isAuthenticated,
   syncBusy,
   cloudVersion,
@@ -104,6 +113,7 @@ export function SettingsModal({
   onLockSalesman,
 }: SettingsModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const fullBackupInputRef = useRef<HTMLInputElement | null>(null);
 
   return (
     <Modal
@@ -301,6 +311,43 @@ export function SettingsModal({
           onChange={onImportFile}
         />
         {importMsg && <p className="text-[11px] text-emerald-300 mt-2">{importMsg}</p>}
+
+        {/* Account-free recovery: this file is the only way back if the phone
+            is lost, because cloud sync is tied to an anonymous device uid. */}
+        <div className="mt-3 rounded-xl border border-sky-500/25 bg-sky-500/5 p-2.5">
+          <p className="text-[11px] leading-5 text-white/60">
+            <strong className="text-sky-200">مکمل بیک اپ</strong> میں کھاتہ، گاہک/سپلائر، بجٹ،
+            ماہانہ اندراج اور ترجیحات سب آ جاتے ہیں۔ فون بدلنے یا ڈیٹا صاف ہونے پر اسی فائل سے
+            سب کچھ واپس آ جاتا ہے — کسی اکاؤنٹ یا انٹرنیٹ کی ضرورت نہیں۔
+          </p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={onExportFullBackup}
+              className={`${smallBtn} flex-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border-sky-500/40`}
+            >
+              <i className="fas fa-box-archive"></i> مکمل بیک اپ ڈاؤن لوڈ
+            </button>
+            <button
+              type="button"
+              onClick={() => fullBackupInputRef.current?.click()}
+              disabled={restoringBackup}
+              className={`${smallBtn} flex-1 bg-white/10 hover:bg-white/20 text-white border-white/20 disabled:opacity-50`}
+            >
+              <i className="fas fa-rotate-left"></i> بحال کریں
+            </button>
+          </div>
+          <input
+            ref={fullBackupInputRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={onImportFullBackup}
+          />
+          {fullBackupMsg && (
+            <p className="mt-2 text-[11px] leading-5 text-emerald-300">{fullBackupMsg}</p>
+          )}
+        </div>
       </div>
 
       {/* Cloud sync */}
