@@ -32,7 +32,10 @@ const ur = {
   archivedMonth: "آرکائیو شدہ ریکارڈ",
 
   /* transcript */
-  micIdle: 'بولیں <strong>"اے منشی"</strong> یا مائیک دبائیں...',
+  /* Plain text on purpose: this string is rendered as text under the mic, so
+     HTML tags here used to appear literally on screen. The bold wake word in
+     the transcript is JSX (see `use-voice-assistant`). */
+  micIdle: 'بولیں "اے منشی" یا مائیک دبائیں...',
   micExample: '💡 مثال: "500 روپے ایڈ کر لو" یا "مالیاتی مشورہ دو"',
   micListening: "منشی سن رہا ہے... فرمائیے!",
   micError: "آواز واضح نہیں آئی، دوبارہ کوشش کریں۔",
@@ -107,3 +110,13 @@ export function t(key: MessageKey): string {
 
 /** The catalogue, exposed so a language picker can render the options. */
 export const availableLocales = Object.keys(catalogues);
+
+/**
+ * Every message key.
+ *
+ * Exported so a verification script can assert that no catalogue string
+ * carries HTML: these values are rendered as text, so a tag here appears
+ * literally on screen (that is exactly how `micIdle` shipped `<strong>` to
+ * users until the live run caught it).
+ */
+export const messageKeys = Object.keys(ur) as MessageKey[];

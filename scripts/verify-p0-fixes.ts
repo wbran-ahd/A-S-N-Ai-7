@@ -33,6 +33,7 @@ import {
 } from "../src/lib/full-backup";
 import { PREF_STORAGE_KEY, STORAGE_KEY, type Entry } from "../src/lib/khata";
 import { PARTY_STORAGE_KEY } from "../src/lib/parties";
+import { messageKeys, t } from "../src/lib/i18n";
 
 let passed = 0;
 const failures: string[] = [];
@@ -239,6 +240,10 @@ section("AI: a real request is sent when the device holds a key");
     check("a rejected key surfaces an error", message.includes("اے آئی تجزیہ ناکام"));
     check("the HTTP status is in the message", message.includes("400"));
     check("the error is not disguised as a result", !message.includes("مقامی تجزیہ"));
+    /* The panel is narrow; a raw JSON body used to fill it. */
+    check("no raw JSON body reaches the panel", !message.includes("{\"error\"") && !message.includes("@type"));
+    check("the message stays short", message.length < 260, String(message.length));
+    check("the message tells the user what to check", message.includes("Gemini API Key"));
 
     stubFetch(() => ({ ok: true, status: 200, body: JSON.stringify({ candidates: [] }) }));
     let emptyMessage = "";
@@ -373,6 +378,23 @@ section("Full backup: a bad file leaves the ledger untouched");
   check("valid rows survive, invalid rows are dropped", partial.income === 1);
   check("a bad monthKey is repaired rather than rejecting the row", partial.expense === 1);
   check("no parties means an empty book", partial.parties === 0);
+}
+
+/* ------------------------------------------------------------------ */
+/* 3. UI copy: no message may carry HTML                              */
+/* ------------------------------------------------------------------ */
+section("Messages: no catalogue value ships literal markup");
+{
+  /* The live run showed `بولیں <strong>"اے منشی"</strong> …` printed as raw
+     text under the mic, because that string is rendered as text, not HTML. */
+  const withMarkup = messageKeys.filter((key) => /<[a-z/]/i.test(t(key)));
+  check(
+    "every message is plain text",
+    withMarkup.length === 0,
+    withMarkup.join(", "),
+  );
+  check("the mic hint carries no tags", !/[<>]/.test(t("micIdle")));
+  check("the mic hint still names the wake word", t("micIdle").includes("اے منشی"));
 }
 
 /* ------------------------------------------------------------------ */

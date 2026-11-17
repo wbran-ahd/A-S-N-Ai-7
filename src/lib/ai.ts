@@ -151,6 +151,24 @@ function normalise(raw: Record<string, unknown>, fallback: AiInsight): AiInsight
   };
 }
 
+/**
+ * A short, human error from a provider response.
+ *
+ * The raw body is a full JSON error object; pasting it into the panel gave the
+ * shopkeeper a 400-character English blob. Only the message is kept.
+ */
+function shortProviderMessage(text: string, status: number): string {
+  try {
+    const parsed = JSON.parse(text) as { error?: { message?: unknown } };
+    if (typeof parsed.error?.message === "string") {
+      return parsed.error.message.trim().slice(0, 120);
+    }
+  } catch {
+    /* not JSON — fall through to the plain text */
+  }
+  return text.trim().slice(0, 120) || `HTTP ${status}`;
+}
+
 async function requestModel(
   apiKey: string,
   model: string,
@@ -172,8 +190,8 @@ async function requestModel(
   });
 
   if (!response.ok) {
-    const text = (await response.text().catch(() => "")).slice(0, 200);
-    throw new Error(`Gemini ${model} — ${response.status}${text ? `: ${text}` : ""}`);
+    const text = await response.text().catch(() => "");
+    throw new Error(`Gemini ${model} — ${response.status}: ${shortProviderMessage(text, response.status)}`);
   }
 
   const payload = (await response.json()) as GeminiPayload;
@@ -233,6 +251,11 @@ export async function requestGeminiInsight(
   }
 
   if (controller.signal.aborted) throw new Error("اے آئی کا جواب وقت پر نہیں آیا — دوبارہ کوشش کریں۔");
-  const detail = lastError instanceof Error ? lastError.message : "نامعلوم خرابی";
-  throw new Error(`اے آئی تجزیہ ناکام: ${detail}`);
+  const detail = (lastError instanceof Error ? lastError.message : "نامعلوم خرابی").replace(
+    /\.+$/,
+    "",
+  );
+  throw new Error(
+    `اے آئی تجزیہ ناکام: ${detail}۔ اپنی Gemini API Key اور انٹرنیٹ چیک کریں۔`,
+  );
 }
