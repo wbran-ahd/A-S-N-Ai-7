@@ -45,38 +45,20 @@ export default defineConfig(({ mode }) => ({
           // Vendor chunks for large libraries
           'react-vendor': ['react', 'react-dom', 'react-router'],
           'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-          // Large UI library chunks
+          // Large UI library chunks. Keep this list to packages this project
+          // actually depends on: Rollup fails the whole build when a manual
+          // chunk names a module that no longer resolves.
           'radix-ui': [
-            '@radix-ui/react-accordion',
-            '@radix-ui/react-alert-dialog',
-            '@radix-ui/react-avatar',
-            '@radix-ui/react-checkbox',
             '@radix-ui/react-collapsible',
-            '@radix-ui/react-context-menu',
             '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-hover-card',
-            '@radix-ui/react-label',
-            '@radix-ui/react-menubar',
-            '@radix-ui/react-navigation-menu',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-progress',
-            '@radix-ui/react-radio-group',
-            '@radix-ui/react-scroll-area',
-            '@radix-ui/react-select',
-            '@radix-ui/react-separator',
-            '@radix-ui/react-slider',
-            '@radix-ui/react-switch',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-toggle',
-            '@radix-ui/react-toggle-group',
-            '@radix-ui/react-tooltip',
+            '@radix-ui/react-slot',
           ],
           // Heavy optional libraries - separate chunks for better lazy loading
           'framer-motion': ['framer-motion'],
           // Audit #9، #10: 'charts: recharts' والی manual chunk غائب —
           // recharts مکمل حذف (مردا code)، اور ایک entry کا ایک ہی chunk ہے۔
-          'forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
+          // The former 'forms' chunk (react-hook-form, @hookform/resolvers,
+          // zod) is gone with the dead shadcn form files it belonged to.
         },
         // Optimize chunk size
         chunkFileNames: 'assets/[name]-[hash].js',
