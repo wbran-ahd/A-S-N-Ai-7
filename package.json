@@ -14,17 +14,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 3000",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/finalize-dist.mjs",
     "typecheck": "tsc -b --noEmit",
-    "test": "bun scripts/verify-khata.ts && bun scripts/verify-reliability.ts && bun scripts/verify-sync-safety.ts && bun scripts/verify-scaffolding.ts",
+    "test": "bun scripts/verify-khata.ts && bun scripts/verify-reliability.ts && bun scripts/verify-sync-safety.ts && bun scripts/verify-scaffolding.ts && bun scripts/verify-voice.ts",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "size": "node scripts/check-bundle-size.mjs",
+    "verify:nomaps": "node scripts/finalize-dist.mjs --verify-only",
     "test:emulator": "firebase emulators:exec --only firestore,auth --project demo-sauti-test \"bun scripts/verify-emulator.ts\"",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "preview": "vite preview --host 0.0.0.0 --port 3000",
-    "dev:preview": "node scripts/preview-dev.mjs"
+    "preview": "vite preview --host 0.0.0.0 --port 3000"
   },
   "dependencies": {
-    "@convex-dev/auth": "^0.0.90",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
@@ -36,7 +38,6 @@
     "chart.js": "^4.5.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "convex": "^1.46.0",
     "date-fns": "^4.1.0",
     "firebase": "^13.0.0",
     "framer-motion": "^12.23.25",
@@ -56,6 +57,7 @@
     "@firebase/eslint-plugin-security-rules": "^0.0.2",
     "@types/node": "^24.10.1",
     "@types/react": "^19.3.0",
+    "@playwright/test": "^1.56.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.1.1",
     "eslint": "^9.39.1",
@@ -69,6 +71,7 @@
     "tw-animate-css": "^1.4.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.48.1",
-    "vite": "^7.2.6"
+    "vite": "^7.2.6",
+    "vitest": "^3.2.4"
   }
 }

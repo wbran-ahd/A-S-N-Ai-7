@@ -11,6 +11,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 // Self-hosted fonts first, so the @font-face rules exist before the theme CSS.
 import "./styles/fonts.css";
 import "./index.css";
+import { loadIconStyles } from "@/lib/deferred-icons";
 
 // Audit 1.5.1: the platform toolbar (and its framer-motion dependency) sat in
 // the synchronous entry chunk, taxing first paint on a 3G phone for a tool the
@@ -29,6 +30,10 @@ const VlyToolbar = lazy(() =>
 // neither renders anything — the UI is untouched. Audit #32: they no longer sit
 // in the synchronous boot path; each bundle loads itself after first paint and
 // initialises then, so the ledger paints first even on a slow phone.
+/* Icon glyphs are not on the critical path (task 8): the stylesheet downloads
+   without blocking the ledger's first paint. */
+loadIconStyles();
+
 initObservability();
 
 function initObservability() {

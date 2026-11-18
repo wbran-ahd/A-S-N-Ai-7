@@ -54,10 +54,17 @@ export function NotepadModal({
   const [editAmount, setEditAmount] = useState("");
   const [editDetail, setEditDetail] = useState("");
   const [editCategory, setEditCategory] = useState("");
+  /* Task 7: an owner can isolate what a salesman recorded. */
+  const [staffOnly, setStaffOnly] = useState(false);
 
   if (!historyType) return null;
 
   const isBalance = historyType === "balance";
+  const items = historyType === "income" ? income : expense;
+  const staffCount = items.filter((item) => item.addedBy === "staff").length;
+  const visibleItems = staffOnly
+    ? items.filter((item) => item.addedBy === "staff")
+    : items;
   const titleMap = {
     income: t("totalIncome"),
     expense: t("totalExpense"),
@@ -203,10 +210,38 @@ export function NotepadModal({
           </div>
         ) : (
           <div className="space-y-2">
-            {(historyType === "income" ? income : expense).length === 0 ? (
+            {staffCount > 0 && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStaffOnly(false)}
+                  aria-pressed={!staffOnly}
+                  className={`px-3 py-1 rounded-xl text-[11px] font-bold border transition ${
+                    !staffOnly
+                      ? "bg-sky-500/20 text-sky-200 border-sky-400/50"
+                      : "bg-white/5 text-white/60 border-white/15"
+                  }`}
+                >
+                  سب اندراج
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStaffOnly(true)}
+                  aria-pressed={staffOnly}
+                  className={`px-3 py-1 rounded-xl text-[11px] font-bold border transition ${
+                    staffOnly
+                      ? "bg-amber-500/20 text-amber-200 border-amber-400/50"
+                      : "bg-white/5 text-white/60 border-white/15"
+                  }`}
+                >
+                  اسٹاف کے اندراج ({staffCount})
+                </button>
+              </div>
+            )}
+            {visibleItems.length === 0 ? (
               <div className="text-center py-8 text-xs text-white/40">{t("emptyList")}</div>
             ) : (
-              (historyType === "income" ? income : expense).map((item) => (
+              visibleItems.map((item) => (
                 <div
                   key={item.id}
                   className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center justify-between gap-3 text-xs"
@@ -251,6 +286,11 @@ export function NotepadModal({
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/70">
                             {item.category || t("allCategories")}
                           </span>
+                          {item.addedBy === "staff" && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300">
+                              اسٹاف
+                            </span>
+                          )}
                         </div>
                         <div className="text-[10px] text-white/40">
                           {new Date(item.timestamp).toLocaleDateString()}

@@ -27,6 +27,8 @@ export type SentryInitOptions = {
   /** Overrides `VITE_SENTRY_DSN` (used by tests). */
   dsn?: string;
   environment?: string;
+  /** Release the uploaded source maps belong to (`VITE_SENTRY_RELEASE`). */
+  release?: string;
   tracesSampleRate?: number;
   /** Overrides the dynamic import (used by tests). */
   loader?: SentryLoader;
@@ -122,6 +124,7 @@ export function initSentry(options: SentryInitOptions = {}): boolean {
 
   loading = true;
   const environment = options.environment ?? envValue("MODE") ?? "production";
+  const release = options.release ?? envValue("VITE_SENTRY_RELEASE");
   const tracesSampleRate = options.tracesSampleRate ?? 0.1;
   const loader = options.loader ?? defaultLoader;
 
@@ -130,6 +133,9 @@ export function initSentry(options: SentryInitOptions = {}): boolean {
       mod.init({
         dsn,
         environment,
+        /* Must match the release the source maps were uploaded under
+           (`scripts/finalize-dist.mjs`). Unset → Sentry groups by DSN only. */
+        ...(release ? { release } : {}),
         tracesSampleRate,
         integrations: [mod.browserTracingIntegration()],
         // Fires for every event, including automatic ones.

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Modal } from "@/components/sauti/Modal";
 import { ShareCard } from "@/components/sauti/ShareCard";
 import { ConfirmDialog } from "@/lib/confirm";
@@ -9,7 +9,9 @@ import {
   formatMonthName,
   formatNumber,
   type DigitStyle,
+  type FontScale,
 } from "@/lib/khata";
+import type { RestorableRow } from "@/hooks/use-sync";
 import { speakUrdu } from "@/lib/tts";
 import { BRAND, supportUrl } from "@/lib/brand";
 import { track } from "@/lib/telemetry";
@@ -61,6 +63,34 @@ interface SettingsModalProps {
   pinOpen: boolean;
   onOpenPin: (mode: PinMode) => void;
   onLockSalesman: () => void;
+  /* --- task 2/3/12/13 additions ------------------------------------- */
+  /** Records on this device that the cloud does not have yet. */
+  pendingCount: number;
+  /** Tombstones still inside the 7-day restore window. */
+  restorable: RestorableRow[];
+  onRestore: (row: RestorableRow["row"]) => void;
+  /** Per-kind usage of the cloud record cap. */
+  capUsage: {
+    limit: number;
+    income: number;
+    expense: number;
+    overflowIncome: number;
+    overflowExpense: number;
+  };
+  onExportOverflow: () => void;
+  fontScale: FontScale;
+  onSetFontScale: (scale: FontScale) => void;
+  /* --- account recovery (email link) -------------------------------- */
+  /** Present once this account is linked to (or signed in with) an email. */
+  accountEmail?: string;
+  /** A sign-in link is open and waiting to be confirmed. */
+  emailLinkPending: boolean;
+  accountBusy: boolean;
+  /** Last Urdu result of sending/finishing the link, if any. */
+  accountMessage: string | null;
+  /** Controls the colour so a failure is never shown in green. */
+  accountMessageTone: "ok" | "error";
+  onSubmitEmail: (email: string) => void;
 }
 
 export function SettingsModal({
@@ -102,8 +132,22 @@ export function SettingsModal({
   pinOpen,
   onOpenPin,
   onLockSalesman,
+  pendingCount,
+  restorable,
+  onRestore,
+  capUsage,
+  onExportOverflow,
+  fontScale,
+  onSetFontScale,
+  accountEmail,
+  emailLinkPending,
+  accountBusy,
+  accountMessage,
+  accountMessageTone,
+  onSubmitEmail,
 }: SettingsModalProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [emailDraft, setEmailDraft] = useState("");
 
   return (
     <Modal
@@ -126,12 +170,79 @@ export function SettingsModal({
         </button>
       </div>
 
+      {/* Account recovery — the cloud khata is tied to this browser until the
+          anonymous session is linked to an email (see use-auth). */}
+      <div className="mb-5 rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3">
+        <h3 className="text-sm font-bold text-white/85 mb-2">
+          <i className="fas fa-shield-heart text-emerald-300 ml-1"></i> کھاتہ محفوظ کریں (نئے فون کے لیے)
+        </h3>
+        {accountEmail ? (
+          <p className="text-[11px] leading-5 text-white/60">
+            <span className="text-emerald-300 font-bold">✓ یہ کھاتہ محفوظ ہے</span> — ای میل:{" "}
+            <bdi dir="ltr" className="font-sans text-white/80">
+              {accountEmail}
+            </bdi>
+            <br />
+            نئے فون یا نئے براؤزر پر یہی ای میل درج کریں، لنک کھولیں — پورا کھاتہ واپس آ جائے گا۔
+          </p>
+        ) : (
+          <>
+            <p className="text-[11px] leading-5 text-white/50">
+              ابھی یہ کھاتہ صرف اسی براؤزر میں محفوظ ہے۔ اپنا ای میل درج کریں — ہم ایک لنک
+              بھیجیں گے؛ لنک کھولتے ہی یہی کھاتہ ای میل سے جڑ جائے گا (موجودہ ڈیٹا ویسے ہی
+              رہے گا) اور نئے فون پر بھی کھل سکے گا۔
+            </p>
+            <input
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              dir="ltr"
+              aria-label="کھاتہ بحال کرنے کے لیے ای میل"
+              value={emailDraft}
+              onChange={(event) => setEmailDraft(event.target.value)}
+              placeholder="aap@example.com"
+              className={`${inputCls} mt-2 text-left`}
+            />
+            <button
+              type="button"
+              onClick={() => onSubmitEmail(emailDraft)}
+              disabled={accountBusy || emailDraft.trim().length === 0}
+              className={`${smallBtn} w-full mt-2 justify-center bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border-emerald-500/40 disabled:opacity-50`}
+            >
+              <i className="fas fa-envelope"></i>{" "}
+              {accountBusy
+                ? "بھیجا جا رہا ہے…"
+                : emailLinkPending
+                  ? "کھاتہ جوڑیں"
+                  : "ای میل لنک بھیجیں"}
+            </button>
+            <p className="mt-1 text-[10px] leading-4 text-white/35">
+              لنک صرف ایک بار کام کرتا ہے اور کچھ منٹ میں پرانا ہو جاتا ہے۔
+            </p>
+          </>
+        )}
+        {accountMessage && (
+          <p
+            role={accountMessageTone === "error" ? "alert" : "status"}
+            aria-live="polite"
+            className={`mt-2 text-[11px] leading-5 ${
+              accountMessageTone === "error" ? "text-rose-200" : "text-emerald-200"
+            }`}
+          >
+            {accountMessage}
+          </p>
+        )}
+      </div>
+
       {/* Gemini key */}
       <div className="space-y-2 text-sm text-white/80 mb-5">
-        <p>
-          ذہین جیمینی اے آئی کے لیے اپنی اے آئی کی (API Key) درج کریں — {t(
-            "geminiKeyIntro",
-          )}
+        <p className="text-xs leading-5">
+          <span className="text-emerald-300 font-bold">✓ اے آئی شامل ہے</span> — تجزیہ اب
+          ایپ کے سرور سے چلتا ہے، اس لیے کوئی کی درج کرنے کی ضرورت نہیں اور آپ کی
+          ذاتی چابی محفوظ رہتی ہے۔
+        </p>
+        <p className="text-[11px] leading-5 text-white/45">
+          اپنی ذاتی جیمینی چابی صرف ماہرین کے لیے ہے (اختیاری) — {t("geminiKeyIntro")}
         </p>
         <input
           type="password"
@@ -146,6 +257,35 @@ export function SettingsModal({
         >
           {t("saveSettings")}
         </button>
+      </div>
+
+      {/* Text size (task 13): the root font size only — no layout change. */}
+      <div className="mb-5">
+        <h3 className="text-sm font-bold text-white/85 mb-2">متن کا سائز</h3>
+        <div className="flex gap-2">
+          {([
+            { scale: "normal", label: "عام" },
+            { scale: "large", label: "بڑا" },
+            { scale: "xlarge", label: "بہت بڑا" },
+          ] as const).map((option) => (
+            <button
+              key={option.scale}
+              type="button"
+              aria-pressed={fontScale === option.scale}
+              onClick={() => onSetFontScale(option.scale)}
+              className={`${smallBtn} flex-1 ${
+                fontScale === option.scale
+                  ? "bg-sky-500/25 text-sky-200 border-sky-400/50"
+                  : "bg-white/5 text-white/70 border-white/20"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[10px] text-white/40">
+          دھوپ میں پڑھنے کے لیے سائز بڑا کریں — ترتیب ویسی ہی رہتی ہے۔
+        </p>
       </div>
 
       {/* Digit style */}
@@ -324,12 +464,81 @@ export function SettingsModal({
           </button>
         </div>
         <p className="text-[11px] text-white/40 mt-2">ورژن: {cloudVersion}</p>
+        {/* Live cloud state in plain Urdu (task 2). */}
+        <p
+          role="status"
+          aria-live="polite"
+          className={`text-[11px] mt-1 ${
+            !isAuthenticated
+              ? "text-white/60"
+              : pendingCount > 0
+                ? "text-amber-300/90"
+                : "text-emerald-300/80"
+          }`}
+        >
+          {!isAuthenticated
+            ? "آن لائن شناخت نہیں — سارا کھاتہ اس ڈیوائس پر محفوظ ہے۔"
+            : pendingCount > 0
+              ? `${pendingCount} انٹریاں ابھی کلاؤڈ پر محفوظ نہیں — خودکار سینک جاری ہے۔`
+              : "آج کا سارا کھاتہ کلاؤڈ پر محفوظ ہے۔"}
+        </p>
         {syncStatus && <p className="text-[11px] text-white/60 mt-1">{syncStatus}</p>}
+        {/* Cloud cap progress (task 12) — shown before it becomes a surprise. */}
+        <p className="text-[11px] text-white/50 mt-1">
+          کلاؤڈ حد: آمدنی {formatNumber(capUsage.income, digitStyle)}/
+          {formatNumber(capUsage.limit, digitStyle)} · خرچہ{" "}
+          {formatNumber(capUsage.expense, digitStyle)}/
+          {formatNumber(capUsage.limit, digitStyle)}
+        </p>
+        {(capUsage.overflowIncome > 0 || capUsage.overflowExpense > 0) && (
+          <div className="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-2">
+            <p className="text-[11px] leading-5 text-amber-200">
+              حد سے پرے {formatNumber(capUsage.overflowIncome + capUsage.overflowExpense, digitStyle)}{" "}
+              پرانے ریکارڈ کلاؤڈ پر نہیں جائیں گے — انہیں فائل میں محفوظ کر لیں۔
+            </p>
+            <button
+              type="button"
+              onClick={onExportOverflow}
+              className={`${smallBtn} w-full mt-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border-amber-500/40`}
+            >
+              <i className="fas fa-box-archive"></i> پرانا کھاتہ آرکائیو کریں
+            </button>
+          </div>
+        )}
         {capWarning && (
           <p className="text-[11px] text-amber-300/90 mt-1">
             نوٹ: کلاؤڈ اپ لوڈ میں ہر قسم کی صرف تازہ ترین {MAX_RECORDS} انٹریز سینک ہوتی
             ہیں — باقی انٹریز اس ڈیوائس پر محفوظ ہیں۔
           </p>
+        )}
+        {/* 7-day restore window (task 3). Restore writes a NEW record; the rules
+            deliberately forbid resurrecting a tombstone. */}
+        {restorable.length > 0 && (
+          <div className="mt-3">
+            <p className="text-[11px] font-bold text-white/70">
+              حالیہ حذف شدہ — سات دن تک بحال ہو سکتے ہیں
+            </p>
+            <div className="mt-1 space-y-1.5">
+              {restorable.slice(0, 5).map(({ row, daysLeft }) => (
+                <div
+                  key={`${row.kind}-${row.localId}`}
+                  className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-2 py-1.5"
+                >
+                  <span className="flex-1 truncate text-[11px] text-white/70">
+                    {row.detail || row.category} — {formatNumber(row.amount, digitStyle)} روپے
+                  </span>
+                  <span className="text-[10px] text-white/40">{daysLeft} دن</span>
+                  <button
+                    type="button"
+                    onClick={() => onRestore(row)}
+                    className={`${smallBtn} bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40`}
+                  >
+                    بحال کریں
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 

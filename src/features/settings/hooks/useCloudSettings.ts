@@ -11,6 +11,7 @@ import { useCallback, useState } from "react";
 import { LEGACY_API_KEY_STORAGE, type Entry } from "@/lib/khata";
 import { t } from "@/lib/i18n";
 import { notifySuccess, notifyWarning } from "@/lib/notifications";
+import { track } from "@/lib/telemetry";
 
 export type UseCloudSettingsOptions = {
   isAuthenticated: boolean;
@@ -70,6 +71,9 @@ export function useCloudSettings({
   }, [apiKeyDraft, closePanel, isAuthenticated, saveGeminiKey, setStatus, speak]);
 
   const handleUpload = useCallback(async () => {
+    /* Task 14: manual saves are a separate signal from the automatic ones — if
+       nobody ever presses this, the "not saved yet" badge is not being read. */
+    track("cloud_upload_clicked", { auto: false });
     if (!isAuthenticated) {
       setStatus("کلاؤڈ سینک کے لیے آن لائن شناخت درکار ہے۔");
       return;

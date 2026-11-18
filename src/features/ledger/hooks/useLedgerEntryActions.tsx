@@ -34,6 +34,8 @@ export type UseLedgerEntryActionsOptions = {
   addEntry: (input: AddEntryInput) => boolean;
   updateEntry: (type: EntryType, id: number, input: AddEntryInput) => boolean;
   undo: () => void;
+  /** `staff` while salesman mode is on — stamped on every record (task 7). */
+  addedBy?: "owner" | "staff";
   /** Voice announcement channel (the `voice.announce` callback). */
   announce: (node: ReactNode, speechText?: string) => void;
 };
@@ -51,6 +53,7 @@ export function useLedgerEntryActions({
   addEntry,
   updateEntry,
   undo,
+  addedBy = "owner",
   announce,
 }: UseLedgerEntryActionsOptions) {
   const pendingBudgetWarning = useCallback(
@@ -124,6 +127,8 @@ export function useLedgerEntryActions({
       detail,
       category: draft.category,
       account: draft.account,
+      addedBy,
+      via: "manual",
     });
     if (ok) {
       track("entry_manual", { type, category: draft.category });
@@ -150,6 +155,8 @@ export function useLedgerEntryActions({
       detail: input.detail,
       category: input.category,
       account: input.account,
+      addedBy,
+      via: "manual",
     });
     if (ok) {
       track("entry_quick", { type: input.type });

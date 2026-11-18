@@ -24,18 +24,52 @@ import {
   persistData,
   persistPrefs,
   validateAmount,
+  normalizeFontScale,
   type AccountKind,
+  type AddedBy,
   type Budget,
   type DataState,
   type DigitStyle,
   type Entry,
   type EntryType,
+  type EntryVia,
+  type FontScale,
   type Prefs,
 } from "@/lib/khata";
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { track } from "@/lib/telemetry";
 import { rememberDeletedIds } from "@/lib/sync-safety";
 import { enqueuePendingDeletion } from "@/lib/deletion-sync";
 import { logEvent } from "@/lib/logger";
+
+/**
+ * Device-storage status, kept outside React so the persist effect never has to
+ * `setState` (which would trigger an extra render pass on every ledger change).
+ * `useSyncExternalStore` re-renders only when the boolean actually flips.
+ */
+let storageOk = true;
+const storageListeners = new Set<() => void>();
+
+function reportStorage(ok: boolean) {
+  if (storageOk === ok) return;
+  storageOk = ok;
+  for (const listener of storageListeners) listener();
+}
+
+function subscribeStorage(listener: () => void) {
+  storageListeners.add(listener);
+  return () => {
+    storageListeners.delete(listener);
+  };
+}
 
 /** Reports a deletion that could not be stored for cloud delivery. */
 function reportQueueIssue(entryId: number, queue: { persisted: boolean; dropped: number }) {
@@ -54,6 +88,10 @@ export type AddEntryInput = {
   category?: string;
   /** Cash by default; voice entries never ask. */
   account?: AccountKind;
+  /** Who recorded it — `staff` while salesman mode is on. Defaults to owner. */
+  addedBy?: AddedBy;
+  /** Which path created it (voice / manual / import / recurring). */
+  via?: EntryVia;
 };
 
 export type KhataCommand =
@@ -141,6 +179,11 @@ export function makeRecord(input: AddEntryInput, id = nextId()): Entry {
     timestamp: now.getTime(),
     updatedAt: now.getTime(),
     account: normalizeAccount(input.account),
+    /* Written forward-only: older records simply have no `dateISO`, and every
+       reader falls back to `timestamp`. Nothing is migrated in place. */
+    dateISO: now.toISOString(),
+    addedBy: input.addedBy === "staff" ? "staff" : "owner",
+    via: input.via ?? "manual",
   };
 }
 
@@ -157,9 +200,20 @@ export function useKhata() {
   const [prefs, setPrefs] = useState<Prefs>(() => loadPrefs());
   const [activeMonth, setActiveMonth] = useState<string>(() => getCurrentMonthKey());
   const [validationError, setValidationError] = useState<string | null>(null);
+  /*
+   * True while this device cannot store the ledger (localStorage quota full,
+   * storage disabled, private-mode limits). Without it a full phone silently
+   * stopped saving: the screen looked normal and the entries vanished on the
+   * next reload. The UI turns this into a visible Urdu warning + CSV prompt.
+   */
+  const storageError = useSyncExternalStore(
+    subscribeStorage,
+    () => !storageOk,
+    () => false,
+  );
 
   useEffect(() => {
-    persistData(data);
+    reportStorage(persistData(data));
   }, [data]);
   useEffect(() => {
     persistPrefs(prefs);
@@ -212,6 +266,12 @@ export function useKhata() {
           }
         : makeRecord({ ...input, amount: result.value }, id);
 
+      /* Task 14: how often a spoken entry has to be corrected. The age is the
+         useful signal — an edit seconds later means the recogniser misheard. */
+      if (existing?.via === "voice") {
+        track("speech_entry_edited", { ageMs: Date.now() - existing.timestamp });
+      }
+
       dispatch({
         kind: "update",
         entryType,
@@ -236,6 +296,7 @@ export function useKhata() {
         entryType === "income" ? dataRef.current.income : dataRef.current.expense
       ).find((item) => item.id === id);
       rememberDeletedIds([id]);
+      if (entry?.via === "voice") track("speech_entry_deleted", {});
       if (entry) reportQueueIssue(id, enqueuePendingDeletion(entry, entryType).queue);
       dispatch({ kind: "remove", entryType, id });
     },
@@ -279,6 +340,13 @@ export function useKhata() {
   );
   const setTtsRate = useCallback(
     (ttsRate: number) => setPrefs((current) => ({ ...current, ttsRate: clampTtsRate(ttsRate) })),
+    [],
+  );
+  /* Accessibility (task 13): scales the root font size only, so no layout,
+     spacing or colour changes with it. */
+  const setFontScale = useCallback(
+    (fontScale: FontScale) =>
+      setPrefs((current) => ({ ...current, fontScale: normalizeFontScale(fontScale) })),
     [],
   );
   /**
@@ -326,6 +394,8 @@ export function useKhata() {
     isCurrentMonth: activeMonth === getCurrentMonthKey(),
     validationError,
     clearValidationError,
+    /* Surface to the page so an unsaved ledger is never invisible. */
+    storageError,
     addEntry,
     updateEntry,
     removeEntry,
@@ -335,6 +405,7 @@ export function useKhata() {
     setDigitStyle,
     setTtsEnabled,
     setTtsRate,
+    setFontScale,
     markRecurringApplied,
     totals,
     monthOptions,

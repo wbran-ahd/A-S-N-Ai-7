@@ -3,12 +3,17 @@ import { auth, db } from "@/lib/firebase";
 import { handleFirestoreError, OperationType } from "@/lib/firestore-errors";
 import {
   MAX_RECORDS,
+  loadAutoMergedUids,
+  markAutoMerged,
+  nextId,
   type Budget,
   type DataState,
   type Entry,
   type EntryType,
   type RecurringEntry,
 } from "@/lib/khata";
+import { downloadJson } from "@/lib/backup-file";
+import { track } from "@/lib/telemetry";
 import { logError, logEvent } from "@/lib/logger";
 import { t } from "@/lib/i18n";
 import { AI_DAILY_LIMIT } from "@/lib/ai-limit";
@@ -26,6 +31,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -53,6 +59,19 @@ import {
 /** Rows per Firestore batch write — Firestore maximum is 500 ops per batch. */
 const SYNC_CHUNK = 250;
 
+/** How long a deleted record can be restored (task 3). */
+export const RESTORE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** How long to wait after the last change before saving quietly (task 2). */
+const AUTO_SYNC_DELAY_MS = 6_000;
+
+/** A tombstone that is still inside the restore window. */
+export type RestorableRow = {
+  row: CloudRow;
+  deletedAt: number;
+  daysLeft: number;
+};
+
 /** Where the Gemini key lives on this device. Never synced to Firestore. */
 const DEVICE_KEY_STORAGE = "sauti_gemini_key";
 
@@ -68,11 +87,26 @@ export type LedgerSnapshot = {
 };
 
 
-export function useSync(data: DataState) {
+export function useSync(
+  data: DataState,
+  /**
+   * Applies the merged cloud ledger back into the app (the page passes
+   * `khata.replaceAll`). Optional so tests and any caller that only reads sync
+   * state keep working unchanged.
+   */
+  applyCloud?: (income: Entry[], expense: Entry[]) => void,
+) {
   const { user, isAuthenticated } = useAuth();
 
   const [cloudRecords, setCloudRecords] = useState<CloudRow[]>([]);
   const [cloudVersion, setCloudVersion] = useState(0);
+  // Refreshed periodically so the 7-day restore window stays accurate without
+  // calling an impure function during render.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
   const [cloudSettings, setCloudSettings] = useState<{
     budgets?: Budget[];
     recurring?: RecurringEntry[];
@@ -210,6 +244,39 @@ export function useSync(data: DataState) {
         return typeof value === "function" ? value(current) : value;
       }),
     [cloudRecurring, localRecurring],
+  );
+
+  /* ---- pending work, restore window and the record cap ---------------- */
+
+  /**
+   * Local rows in cloud shape. Comparing them with the live snapshot is what
+   * makes an honest "not saved yet" count possible without a second store of
+   * truth: `planUpload` already knows exactly what would be written.
+   */
+  const localRows = useMemo<CloudRow[]>(() => {
+    const rows: CloudRow[] = [];
+    for (const entry of data.income) rows.push(recordFromEntry(entry, "income"));
+    for (const entry of data.expense) rows.push(recordFromEntry(entry, "expense"));
+    return rows;
+  }, [data]);
+
+  const uploadPlan = useMemo(() => planUpload(localRows, cloudRecords), [localRows, cloudRecords]);
+
+  /** Entries this device has that the cloud does not — the number shown in Urdu. */
+  const pendingCount = isAuthenticated ? uploadPlan.writes.length : 0;
+
+  /** `true` once everything on this device is already on the server. */
+  const allSaved = isAuthenticated && pendingCount === 0 && !busy;
+
+  const capUsage = useMemo(
+    () => ({
+      limit: MAX_RECORDS,
+      income: data.income.length,
+      expense: data.expense.length,
+      overflowIncome: Math.max(0, data.income.length - MAX_RECORDS),
+      overflowExpense: Math.max(0, data.expense.length - MAX_RECORDS),
+    }),
+    [data],
   );
 
   const upload = useCallback(async () => {
@@ -481,6 +548,98 @@ export function useSync(data: DataState) {
     return { income: merge.income, expense: merge.expense };
   }, [cloudRecords, data.expense, data.income, data.undoStack, isAuthenticated, user]);
 
+  /* ---- first load after account recovery ------------------------------- */
+
+  /**
+   * Pulls the cloud ledger automatically once this device is signed in to a
+   * **permanent** account (email linked, or the email link opened on a new
+   * phone). Before this the user had to find Settings → Cloud Download and
+   * press it; the runbook meanwhile promised the data would arrive by itself.
+   *
+   * Safety: `download()` merges (it never drops a local record), validates the
+   * payload first, refuses malformed rows, keeps this device's deletions and
+   * writes a pre-merge backup.
+   *
+   * Timing: **once per device and account** — the first time that account is
+   * seen here (new phone after recovery, or after linking). Every later start
+   * relies on the live `onSnapshot` listener for freshness, so start-up does
+   * not rewrite the pre-download backup and the whole ledger again. The
+   * device record is persisted (`loadAutoMergedUids`); a failure is retried on
+   * the next snapshot instead of being written off for the session.
+   */
+  const [autoMergedUids] = useState<string[]>(loadAutoMergedUids);
+  const autoMergedSessionRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!applyCloud) return;
+    if (!isAuthenticated || !user?.uid || !user.email) return;
+    if (cloudRecords.length === 0) return;
+    if (autoMergedUids.includes(user.uid)) return;
+    if (autoMergedSessionRef.current === user.uid) return;
+
+    const pulled = download();
+    if (!pulled) return;
+
+    /* Applied before the device is recorded: if anything throws in between, the
+       next start simply merges again (idempotent) instead of leaving a device
+       marked as synced with no data to show for it. */
+    applyCloud(pulled.income, pulled.expense);
+    markAutoMerged(user.uid);
+    autoMergedSessionRef.current = user.uid;
+    logEvent("sync", "info", "cloud ledger merged automatically after sign-in", {
+      income: pulled.income.length,
+      expense: pulled.expense.length,
+    });
+  }, [applyCloud, autoMergedUids, cloudRecords.length, download, isAuthenticated, user]);
+
+  /* ---- automatic, debounced cloud save (task 2) ------------------------ */
+
+  const autoSyncRef = useRef(false);
+  const uploadRef = useRef(upload);
+  useEffect(() => {
+    uploadRef.current = upload;
+  }, [upload]);
+
+  /**
+   * Quietly saves a few seconds after the ledger changes.
+   *
+   * Deliberate properties:
+   *   • debounced, so typing five entries is one write burst, not five;
+   *   • skipped when offline — the pending count stays visible instead;
+   *   • never concurrent with a manual upload;
+   *   • tombstones are delivered by the same `upload` path, so deleting on one
+   *     device still reaches the other devices.
+   */
+  useEffect(() => {
+    if (!isAuthenticated || pendingCount === 0) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    if (busy) return;
+
+    const timer = window.setTimeout(() => {
+      if (autoSyncRef.current) return;
+      autoSyncRef.current = true;
+      track("cloud_upload_clicked", { auto: true, entries: pendingCount });
+      void uploadRef.current().finally(() => {
+        autoSyncRef.current = false;
+      });
+    }, AUTO_SYNC_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [busy, isAuthenticated, pendingCount]);
+
+  /* A phone that regains signal saves without the user doing anything. */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const onOnline = () => {
+      if (autoSyncRef.current) return;
+      autoSyncRef.current = true;
+      void uploadRef.current().finally(() => {
+        autoSyncRef.current = false;
+      });
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [isAuthenticated]);
+
   const persistSettings = useCallback(async () => {
     // Always persist locally
     try {
@@ -517,11 +676,11 @@ export function useSync(data: DataState) {
   const saveGeminiKey = useCallback(
     async (key: string) => {
       try {
-        /* Audit 2.1 / SAU-201: the key is stored device-local only. The old
-           code also wrote it as plaintext into Firestore (`…/settings/current`),
-           where any rules slip would expose it — that write is gone. When an
-           authenticated server-side store (Convex AES-GCM) is wired in, it
-           becomes the backend of this function instead of adding a cloud copy. */
+        /* The key is stored device-local only. The old code also wrote it as
+           plaintext into Firestore (`…/settings/current`), where any rules slip
+           would expose it — that write is gone. AI itself now runs through the
+           server-side Cloud Function, so this key is an optional expert escape
+           hatch rather than the main path. */
         localStorage.setItem(DEVICE_KEY_STORAGE, key);
         setKeySaved(true);
         setStatus(t("aiKeySaved"));
@@ -539,9 +698,90 @@ export function useSync(data: DataState) {
     [],
   );
 
+  /* ---- recently deleted (7-day restore window) ------------------------ */
+
+  /**
+   * Tombstones from the last seven days, newest first.
+   *
+   * Restoring does **not** flip `deleted` back to false — the security rules
+   * deliberately forbid that, because a resurrection path is exactly how a
+   * stale device could undo a deletion. A restore therefore writes a *new*
+   * record with a new id, built from the tombstone's own data.
+   */
+  const restorable = useMemo<RestorableRow[]>(() => {
+    const now = nowMs;
+    return cloudRecords
+      .filter((row) => row.deleted === true && typeof row.deletedAt === "number")
+      .filter((row) => now - (row.deletedAt as number) < RESTORE_WINDOW_MS)
+      .sort((a, b) => (b.deletedAt as number) - (a.deletedAt as number))
+      .map((row) => {
+        const deletedAt = row.deletedAt as number;
+        return {
+          row,
+          deletedAt,
+          daysLeft: Math.max(0, Math.ceil((RESTORE_WINDOW_MS - (now - deletedAt)) / 86_400_000)),
+        };
+      });
+  }, [cloudRecords, nowMs]);
+
+  /** Builds the replacement record for a tombstone (new id, same content). */
+  const restoreDeleted = useCallback((row: CloudRow): { kind: EntryType; entry: Entry } => {
+    const now = new Date();
+    const entry: Entry = {
+      id: nextId(),
+      amount: row.amount,
+      detail: row.detail ?? "",
+      category: row.category ?? "عام",
+      icon: row.icon ?? "fa-tag",
+      monthKey: row.monthKey,
+      date: now.toLocaleDateString("ur-PK"),
+      time: now.toLocaleTimeString("ur-PK", { hour: "2-digit", minute: "2-digit" }),
+      timestamp: now.getTime(),
+      updatedAt: now.getTime(),
+      account: row.account === "bank" ? "bank" : "cash",
+      dateISO: now.toISOString(),
+      addedBy: "owner",
+      via: "manual",
+    };
+    track("restore_deleted", { kind: row.kind });
+    return { kind: row.kind, entry };
+  }, []);
+
+  /**
+   * Archive of the records *beyond* the cloud cap, for the month cleanup task.
+   * Nothing is deleted locally; this is only a file the user can keep.
+   */
+  const exportOverflow = useCallback((): boolean => {
+    const income = data.income.slice(0, Math.max(0, data.income.length - MAX_RECORDS));
+    const expense = data.expense.slice(0, Math.max(0, data.expense.length - MAX_RECORDS));
+    if (income.length === 0 && expense.length === 0) {
+      setStatus("کوئی اضافی (اوور فلو) ریکارڈ موجود نہیں ہے۔");
+      return false;
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    const ok = downloadJson(`sauti-baqaya-archive-${stamp}.json`, {
+      exportedAt: new Date().toISOString(),
+      note: "یہ وہ ریکارڈ ہیں جو کلاؤڈ کی حد سے پرے ہیں — محفوظ رکھیں۔",
+      income,
+      expense,
+    });
+    setStatus(
+      ok
+        ? `آرکائیو ڈاؤن لوڈ ہو گیا (${income.length + expense.length} انٹریز)۔`
+        : "آرکائیو ڈاؤن لوڈ نہیں ہو سکا۔",
+    );
+    return ok;
+  }, [data.expense, data.income]);
+
   return {
     isAuthenticated,
     cloudVersion,
+    pendingCount,
+    allSaved,
+    restorable,
+    restoreDeleted,
+    capUsage,
+    exportOverflow,
     cloudCount: cloudRecords.length,
     aiHasKey: hasCloudKey,
     // Audit #8: the display budget was an inline magic number; it now comes

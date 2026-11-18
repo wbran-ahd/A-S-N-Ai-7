@@ -1,65 +1,71 @@
-# Sauti Baqaya — Urdu Voice Finance Assistant
+# صوتی بقیہ — Urdu Voice Finance Assistant
 
 Voice-controlled bookkeeping for shopkeepers: income, expenses, balance, udhaar/party
-tracking, monthly reports, and a financial assistant.
+tracking, monthly reports and a financial assistant — all in Urdu.
+
+## Architecture (single backend)
+
+| Piece | Where |
+|---|---|
+| Ledger, parties, settings, quota, AI cache | **Firestore** (`users/{uid}/…`), owner-scoped rules |
+| Sign-in | **Firebase Anonymous Auth** (silent, no login screen) + optional **Email link** that links the anonymous uid, so the same cloud khata opens on a new phone |
+| Server-side AI | **Cloud Function** `analyze` in `functions/` (provider key stays on the server) |
+| Rules | `firestore.rules` |
+
+Convex was removed entirely — see [`docs/adr-dual-backend.md`](docs/adr-dual-backend.md).
+
+### Account recovery
+
+An anonymous Firebase uid belongs to one browser, so the ledger is local-first until
+the user links an email in **Settings → کھاتہ محفوظ کریں**. The link is completed with
+`linkCredential`/`linkWithEmailLink`, which keeps the **same uid** (no data moves); on a
+new device the same email signs in to that account and the cloud ledger is merged in
+automatically (no manual Download needed). Requires **Email link
+(passwordless sign-in)** to be enabled in Firebase Authentication — see
+[`docs/RUNBOOK.md`](docs/RUNBOOK.md) section 0.
 
 ## Project layout
 
-- `src/convex/` — Convex backend functions (auth, sync, AI analysis, recurring entries).
-- `src/hooks/` — React hooks for ledger, sync, backup reminders, PWA, staff lock, voice.
-- `src/lib/` — pure domain/formatting helpers: khata math, parties, daybook, i18n, tts.
-- `src/features/` — UI features: ledger, analytics, settings, AI advisor, shop, voice-assistant.
-- `scripts/` — local verification scripts for ledger and scaffolding behavior.
-
-## Vapi integration
-
-A server-backed outbound call integration has been wired so the app can start a Vapi
-voice call from a saved assistant and phone number.
-
-### Current scope
-
-- Backend action intended: `src/convex/vapi-backend.ts`.
-- Shared backend helpers: `src/convex/vapi.ts`.
-- Client component: `src/features/voice-assistant/VapiOutboundCallButton.tsx`.
-
-### What Vapi needs
-
-- A Vapi account.
-- An assistant created in the Vapi dashboard.
-- An imported phone number connected to that assistant for outbound calls.
-- A private Vapi API key added to the project environment as `VAPI_API_KEY`.
-- Optional: `VAPI_API_BASE` if you need a non-default API base URL.
-
-### Verification status
-
-- **Not live-verified yet.**
-- This workspace has no production hosting project yet, so production environment
-  variables cannot be set from here yet.
-- The first production deploy must be started from the project Deploy button before
-  `VAPI_API_KEY` can be added as a production environment variable.
-- After that first deploy, add `VAPI_API_KEY` in Settings → Environment, then the
-  backend action and the client button can be verified against a real Vapi account.
-
-### Recommended next step
-
-1. Create an assistant and connected phone number in the Vapi dashboard.
-2. Generate a private Vapi API key.
-3. Deploy the project once from the Deploy button and choose a domain.
-4. Add `VAPI_API_KEY` (and optional `VAPI_API_BASE`) in Settings → Environment.
-5. Once the Convex backend can run again, regenerate client API types so the button can
-   call the real Convex mutation instead of the direct REST fallback.
-6. Confirm the button can start an outbound call and return a real `callId`.
+- `src/hooks/` — ledger state (`use-khata`), Firestore sync (`use-sync`), staff lock, PWA, voice.
+- `src/lib/` — pure domain helpers: khata math, parties, insights, i18n, tts, voice grammar, AI client.
+- `src/features/` — UI features: ledger, analytics, settings, ai-advisor, shop, onboarding.
+- `functions/` — Firebase Cloud Functions (AI analysis + daily quota + cache).
+- `scripts/` — runnable verification (`verify-*.ts`), bundle budget, asset tooling.
+- `tests/` — Vitest unit tests and a Playwright smoke test.
 
 ## Development
-
-Install, type-check, build, and verify:
 
 ```bash
 bun install
 bun run typecheck
+bun run test        # ledger / sync-safety / voice logic scripts
+bun run test:unit   # Vitest: reducer, sync planning, Urdu grammar
 bun run build
-bun run test
+bun run size        # bundle budget check (after build)
+bun run dev         # http://localhost:3000
 ```
+
+Optional end-to-end smoke (downloads Chromium first):
+
+```bash
+bunx playwright install chromium
+bun run test:e2e
+```
+
+## Deployment
+
+1. Frontend (Firebase Hosting): `bun run build && firebase deploy --only hosting`.
+2. AI function: set the provider key, then `firebase deploy --only functions:sauti`.
+   See [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for key rotation and recovery steps.
+
+The AI function is optional for the ledger: without it the advisor shows an
+explicit *local* summary instead of failing.
+
+## Documentation
+
+- [`docs/RUNBOOK.md`](docs/RUNBOOK.md) — recovery, key rotation, lost device.
+- [`docs/AUDIT-REPORT-URDU.md`](docs/AUDIT-REPORT-URDU.md) — current technical audit (Urdu).
+- [`docs/DEPLOY.md`](docs/DEPLOY.md), [`docs/FIREBASE-SETUP.md`](docs/FIREBASE-SETUP.md).
 
 ## License
 

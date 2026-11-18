@@ -8,12 +8,29 @@ import {
   checkPin,
   createPin,
   lockState,
+  pinGuardState,
   removePin,
   setStaffMode,
   validPin,
   type StaffMode,
 } from "@/lib/staff-lock";
 import { useCallback, useState } from "react";
+
+/**
+ * Urdu explanation for a refused PIN (task 7). The brake is the point: after
+ * five wrong tries the user is told to wait instead of guessing for ever.
+ */
+function pinFailureMessage(suffix = "دوبارہ کوشش کریں۔"): string {
+  const guard = pinGuardState();
+  if (guard.lockedForMs > 0) {
+    const seconds = Math.ceil(guard.lockedForMs / 1000);
+    return `غلط PIN کی بہت کوششیں — ${seconds} سیکنڈ بعد دوبارہ کوشش کریں۔`;
+  }
+  if (guard.remainingTries <= 2 && guard.remainingTries > 0) {
+    return `غلط PIN — ${guard.remainingTries} کوششیاں باقی ہیں۔`;
+  }
+  return `غلط PIN — ${suffix}`;
+}
 
 export function useStaffLock() {
   const [state, setState] = useState(() => lockState());
@@ -64,7 +81,7 @@ export function useStaffLock() {
           return false;
         }
         if (!(await checkPin(pin))) {
-          setError("غلط PIN — دوبارہ کوشش کریں۔");
+          setError(pinFailureMessage());
           return false;
         }
         setStaffMode("owner");
@@ -92,7 +109,7 @@ export function useStaffLock() {
       setBusy(true);
       try {
         if (!(await checkPin(pin))) {
-          setError("غلط PIN — PIN ہٹایا نہیں گیا۔");
+          setError(pinFailureMessage("PIN ہٹایا نہیں گیا۔"));
           return false;
         }
         removePin();

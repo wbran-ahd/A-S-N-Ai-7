@@ -21,6 +21,8 @@ import {
 } from "@/lib/khata";
 import { t } from "@/lib/i18n";
 import { logError, logEvent } from "@/lib/logger";
+import { parseCorrection } from "@/lib/voice-grammar";
+import { track } from "@/lib/telemetry";
 import { speakUrdu } from "@/lib/tts";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -80,6 +82,8 @@ export type VoiceOptions = {
   /** Returns false when there was nothing left to undo. */
   onUndo: () => boolean;
   onAskAi: (question?: string) => void;
+  /** The mic was tapped but this browser has no recogniser (Safari/iOS). */
+  onVoiceUnavailable?: () => void;
   /** Voice confirmations; both come from `khata.prefs`. */
   ttsEnabled?: boolean;
   ttsRate?: number;
@@ -89,6 +93,7 @@ export function useVoiceAssistant({
   onCommit,
   onUndo,
   onAskAi,
+  onVoiceUnavailable,
   ttsEnabled = true,
   ttsRate = 0.95,
 }: VoiceOptions) {
@@ -116,10 +121,12 @@ export function useVoiceAssistant({
   const onCommitRef = useRef(onCommit);
   const onUndoRef = useRef(onUndo);
   const onAskAiRef = useRef(onAskAi);
+  const onVoiceUnavailableRef = useRef(onVoiceUnavailable);
   useEffect(() => {
     onCommitRef.current = onCommit;
     onUndoRef.current = onUndo;
     onAskAiRef.current = onAskAi;
+    onVoiceUnavailableRef.current = onVoiceUnavailable;
   });
 
   const setDialog = useCallback((next: DialogState) => {
@@ -183,6 +190,26 @@ export function useVoiceAssistant({
   const handleUtterance = useCallback(
     (text: string) => {
       if (dialogRef.current === "WAITING_CONFIRM") {
+        /* Task 5: «نہیں، پچاس نہیں دو سو» replaces the pending amount instead
+           of being read as a plain "no". A pure refusal has no amount after
+           the marker, so it still cancels. */
+        const corrected = parseCorrection(text, pending?.amount ?? 0);
+        if (corrected !== null) {
+          const current = pending;
+          if (!current) return cancelPending();
+          setPending({ ...current, amount: corrected });
+          setTranscript(
+            <>
+              {text}
+              <br />
+              <span className="text-amber-300 text-sm font-bold">
+                ✏️ نیا اندراج: {corrected} روپے — "ہاں" کہہ کر تصدیق کریں۔
+              </span>
+            </>,
+          );
+          track("voice_correction", { spoken: true });
+          return;
+        }
         if (NEGATIVE.test(text)) return cancelPending();
         if (POSITIVE.test(text)) return confirmPending();
         setTranscript(<span className="text-rose-400 text-sm font-bold">{t("onlyYesOrNo")}</span>);
@@ -287,7 +314,7 @@ export function useVoiceAssistant({
       );
       speak(question);
     },
-    [cancelPending, confirmPending, setDialog, speak],
+    [cancelPending, confirmPending, pending, setDialog, speak],
   );
 
   const handleUtteranceRef = useRef(handleUtterance);
@@ -421,7 +448,19 @@ export function useVoiceAssistant({
   const toggle = useCallback(() => {
     const command = commandRef.current;
     if (!command) {
-      setTranscript(<>{t("micUnsupported")}</>);
+      /* Task 5: no native recogniser (Safari/iOS, Firefox). Say so in Urdu and
+         hand the user to typed entry instead of leaving a dead microphone. */
+      setTranscript(
+        <>
+          <span className="text-rose-300 font-bold">{t("micUnsupported")}</span>
+          <br />
+          <span className="text-xs text-sky-300/80">
+            نیچے دیے گئے خانے میں لکھ کر درج کریں — سب کچھ ویسے ہی کام کرتا ہے۔
+          </span>
+        </>
+      );
+      track("voice_unsupported_tap", {});
+      onVoiceUnavailableRef.current?.();
       return;
     }
     try {

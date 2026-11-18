@@ -32,7 +32,10 @@ const ur = {
   archivedMonth: "آرکائیو شدہ ریکارڈ",
 
   /* transcript */
-  micIdle: 'بولیں <strong>"اے منشی"</strong> یا مائیک دبائیں...',
+  // Plain text only: these strings are rendered as text nodes, so markup here
+  // is printed literally (`<strong>` used to appear on the home screen). The
+  // emphasised idle prompt is the JSX in `use-voice-assistant`’s IDLE_TRANSCRIPT.
+  micIdle: 'بولیں "اے منشی" یا مائیک دبائیں...',
   micExample: '💡 مثال: "500 روپے ایڈ کر لو" یا "مالیاتی مشورہ دو"',
   micListening: "منشی سن رہا ہے... فرمائیے!",
   micError: "آواز واضح نہیں آئی، دوبارہ کوشش کریں۔",

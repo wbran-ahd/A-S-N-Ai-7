@@ -102,12 +102,16 @@ export function LedgerVoiceCenter({
             </span>
           </div>
 
-          <div className="text-center space-y-1">
-            <div className="text-sm font-bold text-white">
-              {voiceListening ? t("micListening") : t("micIdle")}
+          {/* Listening state only. The idle prompt and its example used to be
+              repeated here *and* in the status box below, which printed the
+              same sentence twice (and the markup in `micIdle` as literal
+              `<strong>` text). The live region below is now the one place the
+              idle prompt is shown. */}
+          {voiceListening && (
+            <div className="text-center text-sm font-bold text-white">
+              {t("micListening")}
             </div>
-            <div className="text-xs text-white/50">{t("micExample")}</div>
-          </div>
+          )}
 
           {/* Transcript Display — aria-live so screen readers hear entries as
               the voice engine confirms them (audit #34). */}

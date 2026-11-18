@@ -276,3 +276,30 @@ html {
     cursor: pointer;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Accessibility: text size preference (task 13)                       */
+/*                                                                     */
+/* Only the root font size changes; every size in the app is expressed  */
+/* in rem via Tailwind, so the glass panels, gutters and grid columns   */
+/* keep their exact proportions — nothing re-flows or moves.            */
+/* ------------------------------------------------------------------ */
+html[data-font-scale="large"] {
+  font-size: 112.5%;
+}
+
+html[data-font-scale="xlarge"] {
+  font-size: 125%;
+}
+
+/* Sunlight legibility: white/40–white/50 helper text is too faint on a phone */
+/* held in direct sun. These minimums apply only to the small helper lines,   */
+/* not to the main figures, so the visual hierarchy is unchanged.            */
+.sauti-app .text-white\/40,
+.sauti-app .text-white\/45 {
+  color: rgb(255 255 255 / 0.58);
+}
+
+.sauti-app .text-white\/50 {
+  color: rgb(255 255 255 / 0.64);
+}

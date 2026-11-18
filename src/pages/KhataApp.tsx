@@ -58,12 +58,36 @@ import { track } from "@/lib/telemetry";
 
 export default function SautiBaqaya() {
   const khata = useKhata();
-  const sync = useSync(khata.data);
-  const { user } = useAuth();
+  // `replaceAll` lets sync apply the cloud ledger automatically once the
+  // account is recovered on a new device (no manual Download needed).
+  const sync = useSync(khata.data, khata.replaceAll);
+  const {
+    user,
+    emailLinkPending,
+    accountBusy,
+    accountMessage,
+    accountMessageTone,
+    submitEmail,
+  } = useAuth();
   const staff = useStaffLock();
   const backup = useBackupReminder();
   const pwa = usePwa();
   const { notifySuccess, notifyWarning } = useNotifications();
+  /* Warn once per failure streak, and let the call to action live in the
+     persistent strip below (a toast alone disappears too quickly to act on).
+     A ref, not state: this only decides whether a toast was already shown. */
+  const storageWarnedRef = useRef(false);
+  useEffect(() => {
+    if (khata.storageError && !storageWarnedRef.current) {
+      storageWarnedRef.current = true;
+      notifyWarning(
+        "ڈیوائس میں جگہ ختم ہو گئی",
+        "نئی انٹری محفوظ نہیں ہو رہی — فوراً CSV بیک اپ ڈاؤن لوڈ کریں۔",
+      );
+    } else if (!khata.storageError && storageWarnedRef.current) {
+      storageWarnedRef.current = false;
+    }
+  }, [khata.storageError, notifyWarning]);
 
   /* ---- Overlays, history and the sidebar highlight --------------------- */
   const nav = useOverlayNavigation();
@@ -118,8 +142,14 @@ export default function SautiBaqaya() {
   /* ---- AI Advisor ------------------------------------------------------ */
   const ai = useAiAdvisor({
     monthName: khata.monthName,
+    monthKey: khata.activeMonth,
     totals: khata.totals,
     breakdown: khata.breakdown,
+    history: khata.trend.map((point) => ({
+      monthKey: point.monthKey,
+      income: point.income,
+      expense: point.expense,
+    })),
     announce,
   });
 
@@ -135,6 +165,7 @@ export default function SautiBaqaya() {
     activeMonth: khata.activeMonth,
     budgets: sync.budgets,
     digitStyle: khata.prefs.digitStyle,
+    addedBy: staff.isStaff ? "staff" : "owner",
     addEntry: khata.addEntry,
     updateEntry: khata.updateEntry,
     undo: khata.undo,
@@ -144,13 +175,26 @@ export default function SautiBaqaya() {
   /* ---- Voice Assistant wiring ------------------------------------------ */
   const voice = useVoiceAssistant({
     onCommit: (type, amount, detail) => {
-      const ok = khata.addEntry({ type, amount, detail });
+      const ok = khata.addEntry({
+        type,
+        amount,
+        detail,
+        addedBy: staff.isStaff ? "staff" : "owner",
+        via: "voice",
+      });
       if (ok) {
         track("entry_voice", { type });
         speakBudgetWarning(type, amount, detail);
       }
       return ok;
     },
+    /* No recogniser (Safari/iOS): the transcript already explains it in Urdu;
+       this also tells the user where to type instead. */
+    onVoiceUnavailable: () =>
+      notifyWarning(
+        "آواز اس براؤزر میں دستیاب نہیں",
+        "نیچے دیے گئے خانے میں لکھ کر درج کریں — کھاتہ ویسے ہی کام کرتا ہے۔",
+      ),
     onUndo: () => {
       if (khata.data.undoStack.length === 0) return false;
       khata.undo();
@@ -169,6 +213,23 @@ export default function SautiBaqaya() {
   useEffect(() => {
     announceRef.current = voice.announce;
   });
+
+  /* Accessibility (task 13): scales the root font size only, so every existing
+     spacing and glass panel keeps its exact proportions. */
+  useEffect(() => {
+    document.documentElement.dataset.fontScale = khata.prefs.fontScale ?? "normal";
+  }, [khata.prefs.fontScale]);
+
+  /* Task 14: "did this session add at least one record?" — the funnel question
+     that decides whether first-run onboarding is working. */
+  const entryCount = khata.data.income.length + khata.data.expense.length;
+  const sessionBaseline = useRef(entryCount);
+  const sessionAddTracked = useRef(false);
+  useEffect(() => {
+    if (sessionAddTracked.current || entryCount <= sessionBaseline.current) return;
+    sessionAddTracked.current = true;
+    track("session_add_record", { total: entryCount });
+  }, [entryCount]);
 
   /* ---- Local backup: CSV, WhatsApp share, file import ------------------- */
   const {
@@ -259,6 +320,19 @@ export default function SautiBaqaya() {
     nav.handleNavigate(id);
   }
 
+  /** Restores a deleted record by writing a fresh copy with a new id (task 3). */
+  function handleRestoreDeleted(row: (typeof sync.restorable)[number]["row"]) {
+    const restored = sync.restoreDeleted(row);
+    khata.merge(
+      restored.kind === "income" ? [restored.entry] : [],
+      restored.kind === "expense" ? [restored.entry] : [],
+    );
+    notifySuccess(
+      "ریکارڈ بحال ہو گیا",
+      `${restored.entry.amount} روپے دوبارہ کھاتے میں شامل کر دیے گئے۔`,
+    );
+  }
+
   function handleLockSalesman() {
     if (!staff.lockOwner()) return;
     setSettingsOpen(false);
@@ -318,6 +392,28 @@ export default function SautiBaqaya() {
         style={{ borderRadius: 0 }}
         className="glass-panel relative flex w-full min-w-0 flex-col overflow-hidden pt-2.5 pb-[calc(env(safe-area-inset-bottom)_+_0.625rem)] pl-[max(env(safe-area-inset-left),0.625rem)] pr-[max(env(safe-area-inset-right),0.625rem)] sm:p-6"
       >
+        {/* Unsaved-ledger warning: localStorage rejected the last write, so
+            nothing on this screen is being stored on the device right now. */}
+        {khata.storageError && (
+          <div
+            role="alert"
+            className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-rose-500/40 bg-rose-500/15 px-3 py-2 text-[11px] leading-5 text-rose-100"
+          >
+            <i className="fas fa-triangle-exclamation text-rose-300" aria-hidden="true"></i>
+            <span className="flex-1">
+              <strong className="font-bold">ڈیوائس میں جگہ ختم ہو گئی</strong> — نئی انٹری
+              محفوظ نہیں ہو رہی۔ فوراً CSV بیک اپ لیں اور پرانا ڈیٹا صاف کریں۔
+            </span>
+            <button
+              type="button"
+              onClick={exportData}
+              className="shrink-0 rounded-lg border border-rose-300/50 bg-rose-500/25 px-2.5 py-1 text-[11px] font-bold text-white transition hover:bg-rose-500/35"
+            >
+              <i className="fas fa-file-csv ml-1"></i> CSV بیک اپ
+            </button>
+          </div>
+        )}
+
         {/* Header Section */}
         <LedgerHeader
           activeMonth={khata.activeMonth}
@@ -332,6 +428,8 @@ export default function SautiBaqaya() {
           onOpenSettings={openSettings}
           onUnlockStaff={() => openPinPanel("unlock")}
           onExportCsv={exportData}
+          syncPending={sync.pendingCount}
+          syncOk={sync.allSaved}
         />
 
         {/* Center content & glowing mic section — this wrapper fills the
@@ -446,6 +544,19 @@ export default function SautiBaqaya() {
         pinOpen={pinOpen}
         onOpenPin={openPinPanel}
         onLockSalesman={handleLockSalesman}
+        pendingCount={sync.pendingCount}
+        restorable={sync.restorable}
+        onRestore={handleRestoreDeleted}
+        capUsage={sync.capUsage}
+        onExportOverflow={() => void sync.exportOverflow()}
+        fontScale={khata.prefs.fontScale}
+        onSetFontScale={khata.setFontScale}
+        accountEmail={user?.email}
+        emailLinkPending={emailLinkPending}
+        accountBusy={accountBusy}
+        accountMessage={accountMessage}
+        accountMessageTone={accountMessageTone}
+        onSubmitEmail={(email) => void submitEmail(email)}
       />
 
       {/* 60-second first-run tour */}

@@ -1,5 +1,23 @@
 # ڈیپلائے گائیڈ — صوتی بقیہ کو لائیو کریں
 
+## 🔒 سورس میپ (source map) — کبھی عوامی نہیں
+
+`vite` پروڈکشن بلڈ میں `sourcemap: 'hidden'` ہے، یعنی ہر `.js` کے ساتھ ایک `.js.map`
+`dist/` میں بنتا ہے۔ وہ میپ **کبھی شائع نہیں ہوتے**:
+
+- `bun run build` کے آخر میں `scripts/finalize-dist.mjs` چلتا ہے؛ اگر
+  `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` موجود ہوں تو میپ **Sentry** پر
+  اپ لوڈ ہوتے ہیں (اسی release کے ساتھ جو ایپ بھیجتی ہے)، اور پھر **تمام `.map` فائلیں
+  ڈیلیٹ** کر دی جاتی ہیں۔
+- `bun run verify:nomaps` ایک سخت گیٹ ہے: `dist/` میں ایک بھی `.map` ملے تو exit code 1۔
+  یہ `ci.yml` اور `deploy.yml` دونوں میں بلڈ کے فوراً بعد چلتا ہے۔
+- `firebase.json` میں `**/*.map` کا ignore بھی موجود ہے (دوسری حفاظتی تہہ)، مگر اس پر
+  انحصار نہیں: `deploy/manifest.json` (Sites/Workers) پورا `dist` اپ لوڈ کرتا ہے، اس لیے
+  اصل ضمانت یہی ہے کہ بلڈ کے بعد فائل موجود ہی نہ ہو۔
+
+Sentry کے secrets (اختیاری): `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`۔
+ان کے بغیر میپ صرف ڈیلیٹ ہو جاتے ہیں — ڈیپلائے نہیں رکتا۔
+
 > ⚠️ **اپ ڈیٹ:** ایکٹیویشن، لائسنسنگ، لاگ اِن اور ایڈمن پینل مکمل طور پر حذف ہو چکے ہیں۔
 > ایپ اب `/` پر سیدھی کھاتی ہے، `functions/` اور `ACTIVATION_PEPPER` موجود نہیں، اور
 > ڈیپلائے صرف `hosting` اور `firestore:rules` کا ہے (`.github/workflows/deploy.yml`،

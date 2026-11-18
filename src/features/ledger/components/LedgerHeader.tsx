@@ -18,6 +18,10 @@ interface LedgerHeaderProps {
   listening?: boolean;
   onToggleVoice?: () => void;
   onOpenHelp?: () => void;
+  /** Records not yet on the server — shown as a small Urdu badge (task 2). */
+  syncPending?: number;
+  /** Everything on this device is already saved in the cloud. */
+  syncOk?: boolean;
 }
 
 export function LedgerHeader({
@@ -31,6 +35,8 @@ export function LedgerHeader({
   isStaff,
   onOpenSettings,
   onUnlockStaff,
+  syncPending = 0,
+  syncOk = false,
 }: LedgerHeaderProps) {
   return (
     <header className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-6">
@@ -98,6 +104,27 @@ export function LedgerHeader({
           <ShieldAlert className="w-3.5 h-3.5" />
           <span>{isStaff ? "اسٹاف موڈ" : "ایڈمن"}</span>
         </button>
+
+        {/* Cloud state, in plain Urdu. Silent when signed out (the local ledger
+            is still fully usable), amber while work is pending. */}
+        <span
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-1 px-2 py-1 text-[10px] text-white/70"
+        >
+          <i
+            className={`fas ${
+              syncPending > 0 ? "fa-cloud-arrow-up text-amber-300" : "fa-cloud text-emerald-300"
+            }`}
+          ></i>
+          <span className="font-sans">
+            {syncPending > 0
+              ? `${syncPending} انٹریاں محفوظ نہیں`
+              : syncOk
+                ? "کلاؤڈ پر محفوظ"
+                : "مقامی محفوظ"}
+          </span>
+        </span>
       </div>
     </header>
   );

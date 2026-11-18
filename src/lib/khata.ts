@@ -58,7 +58,28 @@ export type Entry = {
   updatedAt?: number;
   /** Cash or bank. Missing means cash. */
   account?: AccountKind;
+  /**
+   * ISO-8601 instant the record was written (UTC).
+   *
+   * `date`/`time` above are display strings in the device locale; they are not
+   * sortable or portable. This field is written forward-only: old records have
+   * none and readers fall back to `timestamp`, so no migration is required.
+   */
+  dateISO?: string;
+  /** Who recorded it on this device (staff mode vs the owner). */
+  addedBy?: AddedBy;
+  /** Which path created it — used to measure spoken-entry corrections. */
+  via?: EntryVia;
 };
+
+/** Owner or a salesman working in staff mode. */
+export type AddedBy = "owner" | "staff";
+
+/** How a record entered the ledger. */
+export type EntryVia = "voice" | "manual" | "import" | "recurring";
+
+/** Text size preference; scales the root font size, so the layout is untouched. */
+export type FontScale = "normal" | "large" | "xlarge";
 
 export type UndoEntry = { type: EntryType; record: Entry };
 
@@ -675,12 +696,63 @@ export function loadData(): DataState {
   }
 }
 
-export function persistData(db: DataState) {
+/**
+ * Saves the ledger to this device.
+ *
+ * Returns `false` when the write failed (almost always a full localStorage
+ * quota). The caller must surface that in Urdu: before this returned nothing,
+ * a full device silently stopped saving while the UI kept looking “saved”, and
+ * the entries were gone after a reload.
+ */
+export function persistData(db: DataState): boolean {
   try {
     // Only the records are worth persisting; the undo stack is session state.
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...db, undoStack: [] }));
+    return true;
   } catch {
     /* quota exceeded — the app keeps working in memory */
+    return false;
+  }
+}
+
+/**
+ * Accounts whose cloud ledger was already merged into this device.
+ *
+ * The automatic pull after account recovery must run exactly once per device
+ * and account: on every later start the live Firestore snapshot keeps the copy
+ * fresh, and repeating the merge would rewrite the pre-download backup and the
+ * whole ledger for nothing.
+ */
+export const AUTO_MERGE_KEY = "sautiAutoMergedUids";
+const MAX_AUTO_MERGE_UIDS = 10;
+
+export function loadAutoMergedUids(): string[] {
+  try {
+    const raw = localStorage.getItem(AUTO_MERGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Capped on read as well, so a hand-edited/oversized value cannot make the
+    // per-render `includes` check scan a huge array.
+    return parsed
+      .filter((uid): uid is string => typeof uid === "string")
+      .slice(-MAX_AUTO_MERGE_UIDS);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Remembers that this device has already merged `uid`'s cloud ledger.
+ * A failed write is harmless: the in-session guard still prevents repeats.
+ */
+export function markAutoMerged(uid: string): void {
+  try {
+    const uids = loadAutoMergedUids().filter((existing) => existing !== uid);
+    uids.push(uid);
+    localStorage.setItem(AUTO_MERGE_KEY, JSON.stringify(uids.slice(-MAX_AUTO_MERGE_UIDS)));
+  } catch {
+    /* full storage — the session guard covers this run */
   }
 }
 
@@ -692,6 +764,8 @@ export type Prefs = {
   ttsEnabled: boolean;
   /** Speech rate: 0.85 slow, 0.95 normal, 1.1 fast. */
   ttsRate: number;
+  /** Accessibility: larger text for older eyes and sunlight glare. */
+  fontScale: FontScale;
 };
 
 /** Keeps a stored rate inside the range the settings screen offers. */
@@ -706,7 +780,13 @@ export function defaultPrefs(): Prefs {
     appliedRecurring: {},
     ttsEnabled: true,
     ttsRate: 0.95,
+    fontScale: "normal",
   };
+}
+
+/** Keeps a stored scale inside the three supported sizes. */
+export function normalizeFontScale(value: unknown): FontScale {
+  return value === "large" || value === "xlarge" ? value : "normal";
 }
 
 export function loadPrefs(): Prefs {
@@ -725,17 +805,20 @@ export function loadPrefs(): Prefs {
       // Older prefs have no TTS fields; confirmations stay on by default.
       ttsEnabled: parsed.ttsEnabled !== false,
       ttsRate: clampTtsRate(parsed.ttsRate),
+      fontScale: normalizeFontScale(parsed.fontScale),
     };
   } catch {
     return defaultPrefs();
   }
 }
 
-export function persistPrefs(prefs: Prefs) {
+export function persistPrefs(prefs: Prefs): boolean {
   try {
     localStorage.setItem(PREF_STORAGE_KEY, JSON.stringify(prefs));
+    return true;
   } catch {
-    /* ignore */
+    /* ignore — preferences are cosmetic; the records are what matter */
+    return false;
   }
 }
 

@@ -6,6 +6,12 @@
  * a shop-floor convenience lock (it stops a helper from opening settings or
  * deleting entries), not a replacement for the account password — the honest
  * wording is used in the UI too.
+ *
+ * Brute-force brake (task 7): a 4-digit PIN is only 10,000 guesses, so after
+ * `MAX_PIN_FAILURES` wrong tries the lock stops answering for `PIN_LOCKOUT_MS`.
+ * The counter and the deadline live in the same record, which means they cannot
+ * be reset by simply closing the app — only by clearing browser data (a
+ * shopkeeper's own device, which is out of scope for a convenience lock).
  */
 export type StaffMode = "owner" | "staff";
 
@@ -14,9 +20,17 @@ type LockRecord = {
   salt: string;
   hash: string;
   mode: StaffMode;
+  /** Consecutive wrong PINs since the last success. */
+  failures?: number;
+  /** Epoch ms until which every answer is "wrong", whatever is typed. */
+  lockedUntil?: number;
 };
 
 export const STAFF_LOCK_STORAGE_KEY = "sautiStaffLock";
+/** Wrong tries allowed before the brake engages. */
+export const MAX_PIN_FAILURES = 5;
+/** How long the brake lasts, in milliseconds. */
+export const PIN_LOCKOUT_MS = 60_000;
 
 /** 4–8 digits: long enough to be useful, short enough to type on a keypad. */
 export function validPin(pin: string): boolean {
@@ -55,6 +69,8 @@ function readRecord(): LockRecord | null {
       salt: parsed.salt,
       hash: parsed.hash,
       mode: parsed.mode === "staff" ? "staff" : "owner",
+      failures: typeof parsed.failures === "number" ? parsed.failures : 0,
+      lockedUntil: typeof parsed.lockedUntil === "number" ? parsed.lockedUntil : 0,
     };
   } catch {
     return null;
@@ -75,19 +91,56 @@ export function lockState(): { hasPin: boolean; mode: StaffMode } {
   return { hasPin: record !== null, mode: record?.mode ?? "owner" };
 }
 
+/**
+ * How many attempts are left, and whether the brake is currently on. The UI
+ * reads this to explain itself ("4 کوششیاں باقی") instead of silently failing.
+ */
+export function pinGuardState(now = Date.now()): {
+  lockedForMs: number;
+  remainingTries: number;
+} {
+  const record = readRecord();
+  if (!record) return { lockedForMs: 0, remainingTries: MAX_PIN_FAILURES };
+  const lockedForMs = Math.max(0, (record.lockedUntil ?? 0) - now);
+  const failures = lockedForMs > 0 ? MAX_PIN_FAILURES : (record.failures ?? 0);
+  return { lockedForMs, remainingTries: Math.max(0, MAX_PIN_FAILURES - failures) };
+}
+
 /** Sets (or replaces) the PIN and returns to owner mode. */
 export async function createPin(pin: string): Promise<boolean> {
   if (!validPin(pin)) return false;
   const salt = randomSalt();
   const hash = await hashPin(pin, salt);
-  writeRecord({ version: 1, salt, hash, mode: "owner" });
+  writeRecord({ version: 1, salt, hash, mode: "owner", failures: 0, lockedUntil: 0 });
   return true;
 }
 
-export async function checkPin(pin: string): Promise<boolean> {
+/**
+ * Compares a PIN and maintains the brake.
+ *
+ * While locked, the comparison is skipped entirely (so even the right PIN is
+ * refused until the deadline), which is what makes the limit meaningful.
+ */
+export async function checkPin(pin: string, now = Date.now()): Promise<boolean> {
   const record = readRecord();
   if (!record || !validPin(pin)) return false;
-  return (await hashPin(pin, record.salt)) === record.hash;
+
+  if ((record.lockedUntil ?? 0) > now) return false;
+
+  const matches = (await hashPin(pin, record.salt)) === record.hash;
+  if (matches) {
+    writeRecord({ ...record, failures: 0, lockedUntil: 0 });
+    return true;
+  }
+
+  const failures = (record.failures ?? 0) + 1;
+  const lockedUntil = failures >= MAX_PIN_FAILURES ? now + PIN_LOCKOUT_MS : 0;
+  writeRecord({
+    ...record,
+    failures: lockedUntil > 0 ? 0 : failures,
+    lockedUntil,
+  });
+  return false;
 }
 
 export function setStaffMode(mode: StaffMode) {

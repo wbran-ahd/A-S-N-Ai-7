@@ -49,6 +49,12 @@ jobs:
       # Pinned to the v15 major line; the CLI is fetched on demand, so no
       # firebase-tools dependency is added to the project.
       FIREBASE_CLI: npx --yes firebase-tools@15
+      # Source maps: uploaded to Sentry under this release, then deleted from
+      # dist before any deploy step can see them. `scripts/finalize-dist.mjs`
+      # uses the same value the app sends at runtime, so stacks resolve.
+      VITE_SENTRY_RELEASE: ${{ github.sha }}
+      # Optional repository secrets for source maps: SENTRY_AUTH_TOKEN,
+      # SENTRY_ORG, SENTRY_PROJECT. Without them the maps are simply deleted.
     steps:
       - uses: actions/checkout@v4
 
@@ -86,7 +92,18 @@ jobs:
         run: bun run test
 
       - name: Build frontend
+        env:
+          SENTRY_RELEASE: ${{ github.sha }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
         run: bun run build
+
+      # Hard gate: whatever the deployment path (Firebase Hosting, the Sites
+      # manifest in deploy/, or a future uploader), a `.map` file must not exist
+      # in dist at this point. Fails the run instead of publishing them.
+      - name: Verify no source maps in dist
+        run: bun run verify:nomaps
 
       - name: Deploy
         run: |

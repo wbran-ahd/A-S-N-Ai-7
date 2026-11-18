@@ -27,6 +27,10 @@ node_modules/
 *.log
 .logs/
 
+# Playwright artifacts (traces, screenshots, report) — regenerate by running tests.
+test-results/
+playwright-report/
+
 # AI Studio scratch pastes (build-time inputs, not app assets).
 public/assets/aistudio/
 .aistudio/
@@ -46,7 +50,3 @@ yarn.lock
 scripts/jwt-token.txt
 scripts/jwt-payload.json
 scripts/jwt-verify.txt
-
-# src/convex/_generated is committed on purpose: it holds the Convex API types
-# that the app and the CI typecheck import, and nothing typechecks without it.
-# `convex dev` / `convex deploy` regenerate it, so keep it in sync with src/convex.

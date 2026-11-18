@@ -3,16 +3,8 @@
  * diagnostics dump. Numbers, filenames and messages are byte-identical to the
  * previous inline handlers — only their home changed.
  */
-import {
-  buildReport,
-  downloadBlob,
-  reportFileBase,
-  reportHtml,
-  xlsxBlob,
-  type ReportModel,
-} from "@/lib/export-report";
+import type { ReportModel } from "@/lib/export-report";
 import { notifySuccess, notifyWarning } from "@/lib/notifications";
-import { printHtmlDocument } from "@/lib/print";
 import { formatNumber, type DataState, type DigitStyle } from "@/lib/khata";
 import { BRAND } from "@/lib/brand";
 import {
@@ -39,7 +31,8 @@ export function useMonthlyReports({
   digitStyle,
   onBackedUp,
 }: UseMonthlyReportsOptions) {
-  function monthlyReport(): ReportModel {
+  async function monthlyReport(): Promise<ReportModel> {
+    const { buildReport } = await import("@/lib/export-report");
     return buildReport({
       data,
       monthKey: activeMonth,
@@ -48,8 +41,15 @@ export function useMonthlyReports({
     });
   }
 
-  function exportReportPdf() {
-    const model = monthlyReport();
+  /* Reporting (print HTML + the xlsx writer) is a few hundred kilobytes of
+     code that most sessions never touch, so it is imported on demand (task 8).
+     The UI and the downloaded files are byte-identical to before. */
+  async function exportReportPdf() {
+    const [{ reportHtml }, { printHtmlDocument }, model] = await Promise.all([
+      import("@/lib/export-report"),
+      import("@/lib/print"),
+      monthlyReport(),
+    ]);
     const rows = model.income.length + model.expense.length;
     const ok = printHtmlDocument(
       reportHtml(model, (value) => formatNumber(value, digitStyle)),
@@ -58,8 +58,11 @@ export function useMonthlyReports({
     if (!ok) notifyWarning("پرنٹ ونڈو نہیں کھل سکی", "براہِ کرم دوبارہ کوشش کریں۔");
   }
 
-  function exportReportExcel() {
-    const model = monthlyReport();
+  async function exportReportExcel() {
+    const [{ downloadBlob, reportFileBase, xlsxBlob }, model] = await Promise.all([
+      import("@/lib/export-report"),
+      monthlyReport(),
+    ]);
     const rows = model.income.length + model.expense.length;
     downloadBlob(
       xlsxBlob(model.sheets, model.generatedAt),
@@ -70,7 +73,8 @@ export function useMonthlyReports({
     notifySuccess("Excel فائل ڈاؤن لوڈ ہو گئی", `${model.monthLabel} — خلاصہ، آمدنی، خرچہ`);
   }
 
-  function exportDiagnostics() {
+  async function exportDiagnostics() {
+    const { downloadBlob } = await import("@/lib/export-report");
     const report = buildFieldReport({
       events: loadEvents(),
       version: BRAND.version,

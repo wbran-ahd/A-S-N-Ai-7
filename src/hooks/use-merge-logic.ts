@@ -1,4 +1,4 @@
-import type { Entry, EntryType, AccountKind } from "@/lib/khata";
+import type { AddedBy, Entry, EntryType, AccountKind } from "@/lib/khata";
 
 /**
  * Tombstone fields added by stage 4A (Option A: soft delete inside the record).
@@ -38,6 +38,9 @@ export type CloudRow = {
   timestamp: number;
   updatedAt?: number;
   account?: AccountKind;
+  /** Forward-only additions; every reader treats them as optional. */
+  dateISO?: string;
+  addedBy?: AddedBy;
 } & TombstoneFields;
 
 /**
@@ -60,6 +63,8 @@ export function recordFromEntry(entry: Entry, kind: EntryType): CloudRow {
     timestamp: entry.timestamp,
     updatedAt: localUpdatedAt(entry),
     account: entry.account === "bank" ? "bank" : "cash",
+    ...(entry.dateISO ? { dateISO: entry.dateISO } : {}),
+    ...(entry.addedBy ? { addedBy: entry.addedBy } : {}),
   };
 }
 
@@ -77,6 +82,9 @@ export type ValidatedCloudRow = {
   /** Always present after validation; falls back to `timestamp`. */
   updatedAt: number;
   account: AccountKind;
+  /** Present only on records written after the field was introduced. */
+  dateISO?: string;
+  addedBy?: AddedBy;
   /** `true` when the cloud document is a tombstone. */
   deleted: boolean;
   /** Deletion time when `deleted`; `0` for an active record. */
@@ -269,6 +277,8 @@ function normalizeCloudRow(row: CloudRow): ValidatedCloudRow {
         ? row.updatedAt
         : (row.timestamp ?? 0),
     account: normalizeAccount(row.account),
+    ...(typeof row.dateISO === "string" ? { dateISO: row.dateISO } : {}),
+    ...(row.addedBy === "owner" || row.addedBy === "staff" ? { addedBy: row.addedBy } : {}),
     deleted: row.deleted === true,
     deletedAt:
       row.deleted === true && typeof row.deletedAt === "number" && Number.isFinite(row.deletedAt)
@@ -345,6 +355,8 @@ function entryFromCloud(id: number, cloud: ValidatedCloudRow): Entry {
     timestamp: cloud.timestamp,
     updatedAt: cloud.updatedAt,
     account: cloud.account,
+    ...(cloud.dateISO ? { dateISO: cloud.dateISO } : {}),
+    ...(cloud.addedBy ? { addedBy: cloud.addedBy } : {}),
   };
 }
 

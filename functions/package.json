@@ -1,0 +1,13 @@
+{
+  "name": "sauti-baqaya-functions",
+  "description": "صوتی بقیہ — Firebase Cloud Functions (AI analysis with a server-side provider key)",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase-functions": "^6.1.0"
+  }
+}

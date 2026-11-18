@@ -36,3 +36,28 @@ jobs:
       # checks (amounts, budgets, CSV, formatting) that need no deployment.
       - name: Ledger logic tests
         run: bun run test
+      # Task 1: the production build is a first-class gate. It was broken once
+      # (a stale manualChunks list) while every other check stayed green.
+      - name: Production build
+        run: bun run build
+      # Table-driven unit tests for the reducer, the sync planners and the
+      # Urdu voice grammar (task 4).
+      - name: Unit tests
+        run: bun run test:unit
+      # Source maps must never leave the build: `bun run build` uploads them to
+      # Sentry (when configured) and deletes them. This asserts it actually
+      # happened before anything could be deployed.
+      - name: Verify no source maps in dist
+        run: bun run verify:nomaps
+      # Fails the build when the entry chunk or the total JS grows past the
+      # budget, so a regression cannot land silently (task 1).
+      - name: Bundle budget
+        run: bun run size
+      # Playwright needs a browser download; it runs only when the workflow is
+      # asked for the full suite, so the fast gate stays under a minute.
+      - name: Install Playwright browser
+        if: vars.E2E == 'true'
+        run: bunx playwright install --with-deps chromium
+      - name: End-to-end smoke
+        if: vars.E2E == 'true'
+        run: bun run test:e2e

@@ -22,9 +22,68 @@ function publicOriginPlugin(mode: string): Plugin {
   };
 }
 
+/**
+ * Production Content-Security-Policy (task 9).
+ *
+ * Injected only into the build: `vite dev` relies on an inline
+ * react-refresh preamble, so a strict policy would break development while
+ * protecting nothing (the dev server never leaves the machine). Every deployed
+ * build gets the full policy below.
+ *
+ * Notes on the allowlist:
+ *   • style-src allows inline styles because Tailwind and React both emit them;
+ *   • connect-src lists exactly the APIs the app talks to (Firebase auth and
+ *     Firestore, Cloud Functions, Sentry, PostHog, Z.ai) — nothing else;
+ *   • frame-src 'none' and object-src 'none' close the classic XSS footholds.
+ *
+ * CSP is a second line of defence: Firestore rules remain the real boundary.
+ */
+function cspPlugin(): Plugin {
+  const policy = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "manifest-src 'self'",
+    "worker-src 'self' blob:",
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://*.cloudfunctions.net https://*.run.app https://*.sentry.io https://*.posthog.com https://api.z.ai",
+    "upgrade-insecure-requests",
+  ].join("; ");
+  return {
+    name: "sauti-csp",
+    apply: "build",
+    transformIndexHtml(html) {
+      return html.replace(
+        "</head>",
+        `  <meta http-equiv="Content-Security-Policy" content="${policy}" />\n</head>`,
+      );
+    },
+  };
+}
+
+/**
+ * Dev host allowlist (task 9).
+ *
+ * `allowedHosts: true` accepted any Host header, which is what DNS-rebinding
+ * attacks rely on. Only loopback is allowed by default; a hosted preview adds
+ * its own hostname through VITE_ALLOWED_HOSTS (comma separated) for that run.
+ */
+function devAllowedHosts(): string[] {
+  const extra = (process.env.VITE_ALLOWED_HOSTS ?? "")
+    .split(",")
+    .map((host) => host.trim())
+    .filter(Boolean);
+  return ["localhost", "127.0.0.1", ...extra];
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), vlyPlugin(), tailwindcss(), publicOriginPlugin(mode)],
+  plugins: [react(), vlyPlugin(), tailwindcss(), publicOriginPlugin(mode), cspPlugin()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -35,8 +94,9 @@ export default defineConfig(({ mode }) => ({
     dedupe: ["react", "react/jsx-runtime", "react-dom", "react-dom/client"],
   },
   build: {
-    // Enable source maps for better debugging (disable in production if needed)
-    sourcemap: false,
+    // `hidden` emits maps without referencing them from the bundles: a Sentry
+    // release can upload them (task 9) while browsers never serve them.
+    sourcemap: 'hidden',
     // Optimize chunk splitting
     rollupOptions: {
       output: {
@@ -45,38 +105,18 @@ export default defineConfig(({ mode }) => ({
           // Vendor chunks for large libraries
           'react-vendor': ['react', 'react-dom', 'react-router'],
           'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-          // Large UI library chunks
+          // Only packages that are actually installed may be named here: a
+          // stale entry is a *build* error (Rollup: "Could not resolve entry
+          // module"), not a warning. The 24-package radix list and the `forms`
+          // chunk (react-hook-form / @hookform/resolvers / zod) outlived the
+          // dead shadcn components they belonged to and broke `vite build`.
           'radix-ui': [
-            '@radix-ui/react-accordion',
-            '@radix-ui/react-alert-dialog',
-            '@radix-ui/react-avatar',
-            '@radix-ui/react-checkbox',
             '@radix-ui/react-collapsible',
-            '@radix-ui/react-context-menu',
             '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-hover-card',
-            '@radix-ui/react-label',
-            '@radix-ui/react-menubar',
-            '@radix-ui/react-navigation-menu',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-progress',
-            '@radix-ui/react-radio-group',
-            '@radix-ui/react-scroll-area',
-            '@radix-ui/react-select',
-            '@radix-ui/react-separator',
-            '@radix-ui/react-slider',
-            '@radix-ui/react-switch',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-toggle',
-            '@radix-ui/react-toggle-group',
-            '@radix-ui/react-tooltip',
+            '@radix-ui/react-slot',
           ],
           // Heavy optional libraries - separate chunks for better lazy loading
           'framer-motion': ['framer-motion'],
-          // Audit #9، #10: 'charts: recharts' والی manual chunk غائب —
-          // recharts مکمل حذف (مردا code)، اور ایک entry کا ایک ہی chunk ہے۔
-          'forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
         },
         // Optimize chunk size
         chunkFileNames: 'assets/[name]-[hash].js',
@@ -123,7 +163,7 @@ export default defineConfig(({ mode }) => ({
     host: '0.0.0.0',
     port: 3000,
     strictPort: true,
-    allowedHosts: true,
+    allowedHosts: devAllowedHosts(),
     hmr: false,
   },
 }));
