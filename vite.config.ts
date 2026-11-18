@@ -105,11 +105,12 @@ export default defineConfig(({ mode }) => ({
           // Vendor chunks for large libraries
           'react-vendor': ['react', 'react-dom', 'react-router'],
           'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-          // Only packages that are actually installed may be named here: a
-          // stale entry is a *build* error (Rollup: "Could not resolve entry
-          // module"), not a warning. The 24-package radix list and the `forms`
-          // chunk (react-hook-form / @hookform/resolvers / zod) outlived the
-          // dead shadcn components they belonged to and broke `vite build`.
+          // Large UI library chunks. Only packages that are actually
+          // installed may be named here: a stale entry is a hard build error
+          // (Rollup: "Could not resolve entry module"), not a warning. The
+          // 24-package radix list and the `forms` chunk (react-hook-form /
+          // @hookform/resolvers / zod) outlived the dead shadcn components they
+          // belonged to and broke `vite build`.
           'radix-ui': [
             '@radix-ui/react-collapsible',
             '@radix-ui/react-dialog',
