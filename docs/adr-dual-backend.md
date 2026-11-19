@@ -39,14 +39,14 @@ Convex کا تمام کوڈ، اسکیما، کنفیگ اور dependency ہٹا
 **قیمت**
 
 - AI کے لیے Cloud Functions ڈیپلائے کرنا لازم ہے
-  (`firebase deploy --only functions:sauti`)؛، ورنہ ایپ مقامی خلاصہ دکھاتی ہے — یہ
+  (`firebase deploy --only functions`)؛، ورنہ ایپ مقامی خلاصہ دکھاتی ہے — یہ
   واضح طور پر "مقامی" لکھا جاتا ہے، چھپایا نہیں جاتا۔
 - Firestore میں لین دین (transactions) محدود ہیں: اسی لیے upload منصوبہ
   (`planUpload`) اور tombstone اصول ہر تحریر سے پہلے فیصلہ کرتے ہیں۔
 
 ## نافذ کرنے کا طریقہ
 
-1. `functions/` میں `ZAI_API_KEY` یا `GEMINI_API_KEY` سیٹ کریں۔
-2. `firebase deploy --only functions:sauti`۔
+1. `functions/.env` میں `ZAI_API_KEY` یا `GEMINI_API_KEY` سیٹ کریں۔
+2. `firebase deploy --only functions`۔
 3. ایپ میں **مشورہ** دبائیں؛ جواب آنا تصدیق ہے۔
 4. تفصیل: `docs/RUNBOOK.md`۔
