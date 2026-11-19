@@ -18,7 +18,8 @@ Convex was removed entirely — see [`docs/adr-dual-backend.md`](docs/adr-dual-b
 
 An anonymous Firebase uid belongs to one browser, so the ledger is local-first until
 the user links an email in **Settings → کھاتہ محفوظ کریں**. The link is completed with
-`linkCredential`/`linkWithEmailLink`, which keeps the **same uid** (no data moves); on a
+`linkWithCredential` + `EmailAuthProvider.credentialWithLink` (and
+`signInWithEmailLink` on the new device), which keeps the **same uid** (no data moves); on a
 new device the same email signs in to that account and the cloud ledger is merged in
 automatically (no manual Download needed). Requires **Email link
 (passwordless sign-in)** to be enabled in Firebase Authentication — see
@@ -54,9 +55,11 @@ bun run test:e2e
 
 ## Deployment
 
-1. Frontend (Firebase Hosting): `bun run build && firebase deploy --only hosting`.
-2. AI function: set the provider key, then `firebase deploy --only functions:sauti`.
-   See [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for key rotation and recovery steps.
+1. Frontend + rules: `bun run build && firebase deploy --only hosting,firestore:rules`.
+2. AI function (optional): put the provider key in `functions/.env` (`ZAI_API_KEY` or
+   `GEMINI_API_KEY`), then `firebase deploy --only functions`.
+   See [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for key rotation and recovery steps,
+   and [`docs/DEPLOY.md`](docs/DEPLOY.md) for the full deploy checklist.
 
 The AI function is optional for the ledger: without it the advisor shows an
 explicit *local* summary instead of failing.
