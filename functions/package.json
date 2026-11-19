@@ -3,7 +3,7 @@
   "description": "صوتی بقیہ — Firebase Cloud Functions (AI analysis with a server-side provider key)",
   "private": true,
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "dependencies": {

@@ -8,6 +8,6 @@
  * enforcement lives in the Cloud Function (`functions/index.js`), which reads
  * the quota before calling a model and only spends it once a model answered.
  * That file declares the same number; change both together (there is no shared
- * module between the browser bundle and Node 20 functions).
+ * module between the browser bundle and Node 22 functions).
  */
 export const AI_DAILY_LIMIT = 25;
