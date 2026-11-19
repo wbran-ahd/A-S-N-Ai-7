@@ -8,15 +8,67 @@
 ## 0. ایک بار کا سیٹ اپ (ای میل لنک کے لیے — ضروری)
 
 ایپ بغیر لاگ اِن کے کھلتی ہے، مگر کھاتہ **اسی براؤزر** سے جڑا ہوتا ہے جب تک ای میل
-سے محفوظ نہ کیا جائے۔ یہ سہولت چلانے کے لیے، ایک بار:
+سے محفوظ نہ کیا جائے۔ یہ سہولت چلانے کے لیے project
+`gen-lang-client-09792501-d8895` میں ایک بار یہ کریں:
 
-1. Firebase Console → **Authentication → Sign-in method** → **Email link
-   (passwordless sign-in)** → **Enable**۔
-2. **Authentication → Settings → Authorized domains** میں ایپ کا ڈومین موجود ہو
-   (`localhost` پہلے سے شامل ہوتا ہے)۔
-3. **Templates** میں ای میل کا متن اردو میں کر لیں (اختیاری)۔
+### 0.1 project منتخب کریں
 
-> اگر «ای میل لنک سہولت ابھی Firebase میں فعال نہیں» کا پیغام آئے تو مرحلہ 1 نہیں ہوا۔
+https://console.firebase.google.com/project/gen-lang-client-09792501-d8895/overview
+
+اوپر project selector میں ID بالکل وہی نظر آئے۔ ہر لنک کے شروع میں یہی
+`project/gen-lang-client-09792501-d8895` ہونا چاہیے۔
+
+### 0.2 Email link فعال کریں
+
+1. **Authentication → Sign-in method** (نئے Console میں **Sign-in providers**)۔
+2. **Email link (passwordless sign-in)** → **Enable** → **Save**۔
+   - فہرست میں یہ آپشن نہ ملے تو **Add new provider** دبائیں اور یہی چنیں۔
+3. **Anonymous** ہر حال میں **Enabled** رہے — ایپ اسی خاموش شناخت پر چلتی ہے۔
+   اسے بند کرنے سے کلاؤڈ سینک رک جائے گا۔
+4. **Email/Password** کی ضرورت نہیں — اسے نہ چھیڑیں۔
+
+> یہ مرحلہ نہ ہو تو ایپ «ای میل لنک سہولت ابھی Firebase میں فعال نہیں» دکھاتی ہے
+> (`auth/operation-not-allowed`)۔
+
+### 0.3 Authorized domains
+
+**Authentication → Settings → Authorized domains** میں یہ hostnames ہونے چاہییں:
+
+| hostname | کیوں |
+| --- | --- |
+| `localhost` | پہلے سے موجود — کمپیوٹر پر جانچ |
+| `gen-lang-client-09792501-d8895.firebaseapp.com` | پہلے سے موجود (default authDomain) |
+| `gen-lang-client-09792501-d8895.web.app` | **Add domain** سے شامل کریں — لائیو ایپ |
+| اپنا custom domain (اگر ہو) | تب ہی جب وہ استعمال ہو رہا ہو |
+
+**Add domain** میں صرف hostname لکھیں: `https://` نہیں، آگے `/` یا راستہ نہیں۔
+لنک `${origin}/?emailSignIn=1` پر واپس آتا ہے، اس لیے یہ ڈومین missing ہو تو
+`auth/unauthorized-continue-uri` آتا ہے۔
+
+> Preview/test کا hostname (مثلاً `pv-….style.dev`) ہر سیشن میں بدلتا ہے — اُس
+> وقت کا اصل hostname شامل کریں، ورنہ لنک واپس نہیں آ سکے گا۔
+
+### 0.4 ای میل کا متن (اختیاری، 2 منٹ)
+
+1. **Authentication → Templates → Email link sign-in** (پرانا نام: *Passwordless
+   sign-in*)۔
+2. **Subject** اور **Message body** اردو میں لکھیں، مثلاً:
+   - Subject: `صوتی بقیہ — کھاتہ کھولنے کا لنک`
+   - Body: `نیچے والے بٹن پر کلک کریں تو آپ کا کھاتہ اسی براؤزر میں کھل جائے گا۔ لنک صرف ایک بار چلتا ہے۔`
+3. `%LINK%` placeholder نہ ہٹائیں — وہی اصل لنک ہے۔
+4. Sender default رہنے دیں (اپنا SMTP الگ سیٹ اپ ہے)۔
+
+### 0.5 Firestore rules
+
+جب بھی `firestore.rules` بدلے (یا پہلی بار):
+
+- Console: **Firestore Database → Rules** → فائل کا پورا مواد پیسٹ کریں → **Publish**۔
+- یا کمانڈ: `firebase deploy --only firestore:rules`۔
+
+یہ نہ ہو تو سینک `Missing or insufficient permissions` دیتا ہے۔
+
+**تصدیق:** Settings میں ای میل لکھ کر «ای میل لنک بھیجیں» دبائیں تو کوئی
+auth error نہ آئے اور «لنک بھیج دیا گیا» کا پیغام نظر آئے۔
 
 ---
 
@@ -38,6 +90,20 @@
 
 اگر لنک نہ ملے: Spam/Junk دیکھیں۔ لنک **ایک بار** چلتا ہے اور کچھ منٹ میں پرانا ہو
 جاتا ہے — دوبارہ «ای میل لنک بھیجیں» دبائیں۔
+
+### ای میل لنک کے error codes کا مطلب
+
+| پیغام / code | وجہ | حل |
+| --- | --- | --- |
+| `auth/operation-not-allowed` | Email link provider بند ہے | مرحلہ 0.2 |
+| `auth/unauthorized-continue-uri` یا `auth/invalid-continue-uri` | یہ ڈومین Authorized domains میں نہیں | مرحلہ 0.3 |
+| `auth/invalid-email` | ای میل غلط لکھی گئی | دوبارہ لکھیں |
+| `auth/expired-action-code` | لنک پرانا ہو گیا | «ای میل لنک بھیجیں» دوبارہ دبائیں |
+| `auth/invalid-action-code` | لنک پہلے استعمال ہو چکا یا کٹا پھٹا کھلا | نیا لنک لیں، لنک **اسی براؤزر** میں کھولیں |
+| `auth/too-many-requests` | بہت بار کوشش | چند منٹ رک کر دوبارہ |
+| `auth/network-request-failed` | انٹرنیٹ نہیں | کنکشن چیک کر کے دوبارہ |
+| `auth/email-already-in-use` / `auth/credential-already-in-use` | ای میل پہلے سے کسی کھاتے کی ہے | کوئی خرابی نہیں — ایپ خود اُس پرانے کھاتے میں سائن اِن کر کے ڈیٹا لے آتی ہے |
+| «یہ براؤزر پہلے ہی دوسرے کھاتے سے جڑا ہے» | ڈیوائس پہلے سے کسی مستقل کھاتے سے جڑی ہے | محفوظ ڈیزائن: پہلے اُس کھاتے سے الگ ہوں (یا نیا براؤزر/صاف سائٹ ڈیٹا)، پھر لنک کھولیں — ورنہ مقامی کھاتہ دوسرے اکاؤنٹ میں چلا جاتا |
 
 > پرانے فون پر کھاتہ اسی ای میل سے جڑا ہونا چاہیے تھا۔ اگر وہاں کبھی لنک نہیں کیا
 > گیا تو کلاؤڈ ڈیٹا کسی دوسرے فون سے نہیں کھل سکتا — اس صورت میں CSV/JSON بیک اپ ہی
@@ -76,10 +142,11 @@
 
 AI ایپ کے **سرور** سے چلتی ہے؛ چابی کبھی فون میں نہیں جاتی۔
 
-1. Firebase Console → **Functions** → `analyze` کا ماحول کھولیں (یا
-   `firebase functions:secrets:set ZAI_API_KEY` چلائیں)۔
-2. نئی چابی درج کریں اور دوبارہ ڈیپلائے کریں:
-   `firebase deploy --only functions:sauti`۔
+چابی صرف Cloud Function `analyze` (region `us-central1`) پڑھتی ہے، اور وہ
+`functions/.env` سے آتی ہے (یہ فائل git میں نہیں جاتی):
+
+1. `functions/.env` میں ایک لائن لکھیں: `ZAI_API_KEY=…` (یا `GEMINI_API_KEY=…`)۔
+2. دوبارہ ڈیپلائے کریں: `firebase deploy --only functions`۔
 3. ایپ میں **مشورہ** دبائیں — جواب آنے کا مطلب چابی درست ہے۔
 4. پرانی چابی فراہم کنندہ کے ڈیش بورڈ سے فوراً منسوخ کریں۔
 5. اگر «اے آئی دستیاب نہیں» آئے تو ایپ مقامی خلاصہ دکھا دیتی ہے — یہ خرابی نہیں،

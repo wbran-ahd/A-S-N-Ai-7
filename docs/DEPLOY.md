@@ -11,68 +11,53 @@
   ڈیلیٹ** کر دی جاتی ہیں۔
 - `bun run verify:nomaps` ایک سخت گیٹ ہے: `dist/` میں ایک بھی `.map` ملے تو exit code 1۔
   یہ `ci.yml` اور `deploy.yml` دونوں میں بلڈ کے فوراً بعد چلتا ہے۔
-- `firebase.json` میں `**/*.map` کا ignore بھی موجود ہے (دوسری حفاظتی تہہ)، مگر اس پر
-  انحصار نہیں: `deploy/manifest.json` (Sites/Workers) پورا `dist` اپ لوڈ کرتا ہے، اس لیے
-  اصل ضمانت یہی ہے کہ بلڈ کے بعد فائل موجود ہی نہ ہو۔
+- `firebase.json` میں `**/*.map` کا ignore بھی موجود ہے (دوسری حفاظتی تہہ)۔
 
 Sentry کے secrets (اختیاری): `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`۔
 ان کے بغیر میپ صرف ڈیلیٹ ہو جاتے ہیں — ڈیپلائے نہیں رکتا۔
 
-> ⚠️ **اپ ڈیٹ:** ایکٹیویشن، لائسنسنگ، لاگ اِن اور ایڈمن پینل مکمل طور پر حذف ہو چکے ہیں۔
-> ایپ اب `/` پر سیدھی کھاتی ہے، `functions/` اور `ACTIVATION_PEPPER` موجود نہیں، اور
-> ڈیپلائے صرف `hosting` اور `firestore:rules` کا ہے (`.github/workflows/deploy.yml`،
-> دستی `workflow_dispatch`)۔ اس دستاویز کے وہ مراحل جو functions، `/activate` یا
-> `/admin` کہتے ہیں، **تاریخ** ہیں۔
+---
 
-> **کل وقت:** پہلی بار تقریباً 20–30 منٹ، اس کے بعد ہر اپ ڈیٹ 2 منٹ۔
->
-> **کیا تیار ہے:** سارا code، `firebase.json`، `.firebaserc`، rules، indexes اور functions — ایجنٹ نے بنایا اور چیک کیا۔
-> **کیا آپ کو کرنا ہے:** نیچے دیے گئے کمانڈز اپنے کمپیوٹر پر چلانا۔ ایجنٹ deploy **نہیں** کرے گا۔
+## کیا ڈیپلائے ہوتا ہے
+
+| چیز | کمانڈ | لازمی؟ |
+| --- | --- | --- |
+| ویب ایپ (Hosting، SPA) | `firebase deploy --only hosting` | ✅ ہاں |
+| Firestore rules | `firebase deploy --only firestore:rules` | ✅ ہاں (جب rules بدلیں) |
+| Firestore indexes | `firebase deploy --only firestore:indexes` | صرف نئے index پر |
+| AI function `analyze` | `firebase deploy --only functions` | اختیاری |
+
+> ایکٹیویشن، لائسنسنگ، `/activate`، `/admin`، Email/Password اور
+> `ACTIVATION_PEPPER` **ختم** ہو چکے ہیں۔ پرانی گائیڈز کے وہ کمانڈز نہ چلائیں — وہ
+> اب کچھ ڈیپلائے نہیں کریں گے، صرف الجھن دیں گے۔
+
+**کل وقت:** پہلی بار 5–10 منٹ، اس کے بعد ہر اپ ڈیٹ 1–2 منٹ۔
+**کیا تیار ہے:** سارا code، `firebase.json`، `.firebaserc`، rules، indexes۔
 
 ---
 
-## 0. پہلے تصدیق — کیا سب کچھ upload کے لیے تیار ہے؟
+## 0. پہلے تصدیق — سب تیار ہے؟
 
-| #   | چیز                                        | حالت                                              |
-| --- | ------------------------------------------ | ------------------------------------------------- |
-| 1   | فرانت اِند بلڈ (`bun run build`)           | ✅ `dist/` بن چکا (3.6 MB، `index.html` موجود)    |
-| 2   | Functions بلڈ (`npm --prefix functions run build`) | ✅ `functions/lib/index.js` بن چکا          |
-| 3   | **Hosting کا فولڈر** — `firebase.json` میں `"public": "dist"` | ✅ درست                              |
-| 4   | **ریجن** — `functions/src/config.ts` میں `REGION = "asia-south1"` | ✅ ہر callable پر لگا ہوا ہے         |
-| 5   | **پروجیکٹ** — `.firebaserc` میں `default` = `gen-lang-client-09792501-d8895` | ✅ موجود           |
-| 6   | Firestore rules + indexes فائلیں          | ✅ `firestore.rules`، `firestore.indexes.json`     |
-| 7   | تعاونی ٹیسٹ                               | ✅ 284 چیکس پاس                                   |
-| 8   | Blaze پلان، Email/Password enable، admin اکاؤنٹ | ⚠️ **آپ** — `docs/FIREBASE-SETUP.md` مرحلہ 2–4 |
-
-> **ریجن کے بارے میں:** `firebase.json` میں ریجن کی کوئی کلید ہوتی ہی نہیں — ریجن ہر فنکشن کے ساتھ کوڈ میں لگتا ہے، اور وہ `asia-south1` ہے۔ کلائنٹ بھی `getFunctions(app, "asia-south1")` استعمال کرتا ہے، اس لیے دونوں مل کر کام کرتے ہیں۔
-
-**جو چیزیں پہلے سے بنی ہوئی ہیں (انہیں دوبارہ بنانے کی ضرورت نہیں):**
-
-- ✅ `firebase.json` — Functions (Node 22)، rules/indexes، Hosting SPA rewrite
-- ✅ `.firebaserc` — default project
-- ✅ `firestore.rules` — پرانے ledger rules + نئی licensing collections
-- ✅ `functions/` — 7 callables (activation، status اور پانچ ایڈمن فنکشنز)
-
-### 4 چیزیں جو کبھی نہ کریں
-
-1. **`firebase init` نہ چلائیں** — یہ موجودہ config اوور رائٹ کر دے گا۔
-2. **`ACTIVATION_PEPPER` بعد میں نہ بدلیں** — پرانے واؤچر hashes بے کار ہو جائیں گے۔
-3. **`.env`، key یا پاس ورڈ کبھی چیٹ میں نہ بھیجیں** — نہ مجھے، نہ کسی اور کو۔
-4. **Service-account JSON کسی کو نہ بھیجیں** — وہ سارے rules بائیپاس کر سکتی ہے۔
+| # | چیز | حالت |
+| --- | --- | --- |
+| 1 | فرانت اِند بلڈ (`bun run build`) | ✅ `dist/` (میپ کے بغیر) |
+| 2 | Hosting فولڈر — `firebase.json` میں `"public": "dist"` | ✅ |
+| 3 | پروجیکٹ — `.firebaserc` میں `gen-lang-client-09792501-d8895` | ✅ |
+| 4 | Rules + indexes فائلیں | ✅ `firestore.rules`, `firestore.indexes.json` |
+| 5 | Email link + Authorized domains | ⚠️ **آپ** — [`FIREBASE-SETUP.md`](FIREBASE-SETUP.md) مرحلہ 2–3 |
+| 6 | Blaze (صرف AI) | ⚠️ **آپ** — `FIREBASE-SETUP.md` مرحلہ 7 |
 
 ---
 
-## قدم 1 — Terminal / Command Prompt کھولیں
+## قدم 1 — Terminal کھولیں
 
-- **Windows:** Start میں `cmd` یا `PowerShell` لکھیں۔
-- **Mac:** `Terminal` (Spotlight میں)۔
-- پروجیکٹ کے فولڈر میں جائیں:
+- **Windows:** Start میں `cmd` یا `PowerShell`۔
+- **Mac:** `Terminal`۔
+- پروجیکٹ کے فولڈر میں جائیں (وہاں `firebase.json` ہو):
 
 ```bash
 cd path/to/sauti-baqaya
 ```
-
-> یہ وہی فولڈر ہے جس میں `firebase.json` موجود ہو۔ `dir` (Windows) یا `ls` (Mac) سے تصدیق کر لیں۔
 
 ---
 
@@ -82,10 +67,7 @@ cd path/to/sauti-baqaya
 firebase login
 ```
 
-**یہ کیا کرتا ہے:** آپ کے براؤزر میں Google لاگ اِن کھلتا ہے → ایک ہی بار **Allow** دبائیں → آپ کا کمپیوٹر Firebase کا حوالہ بن جاتا ہے۔
-
-- CLI انسٹال نہیں؟ پہلے: `npm install -g firebase-tools`
-- پہلے سے لاگ اِن ہیں؟ یہ کمانڈ دوبارہ چلانا ضروری نہیں۔
+براؤزر کھلے گا → **Allow**۔ CLI نہ ہو تو پہلے: `npm install -g firebase-tools`۔
 
 تصدیق:
 
@@ -100,115 +82,53 @@ firebase projects:list
 ## قدم 3 — پروجیکٹ منتخب کریں
 
 ```bash
-firebase use --add
-```
-
-**یہ کیا کرتا ہے:** سبھی projects کی فہرست دکھاتا ہے —
-
-1. `gen-lang-client-09792501-d8895` منتخب کریں۔
-2. Alias پوچھے تو **`default`** لکھ کر Enter دبائیں۔
-
-> `.firebaserc` میں یہ پہلے سے محفوظ ہے — یہ قدم صرف تصدیق ہے۔ اگر کچھ بھی نہ پوچھے تو یہ درست ہے۔
-
-پھر:
-
-```bash
 firebase use
 ```
 
-آؤٹ پوٹ میں ` gen-lang-client-09792501-d8895 ` نظر آنا چاہیے۔
+آؤٹ پوٹ میں `gen-lang-client-09792501-d8895` آئے۔ نہ آئے تو:
+
+```bash
+firebase use gen-lang-client-09792501-d8895
+```
 
 ---
 
-## قدم 4 — Firestore Rules اور Indexes اپلوڈ کریں
+## قدم 4 — Rules اور Indexes
 
-### 4.1 Rules
+### 4.1 Rules (پہلے یہی)
 
 ```bash
 firebase deploy --only firestore:rules
 ```
 
-**یہ کیا کرتا ہے:** `firestore.rules` فائل سرور پر چھوڑ دیتا ہے۔ یہی وہ حفاظت ہے جو طے کرتی ہے کہ عام صارف `codes/` یا کسی اور کے licenses نہ لکھ سکے، اور ایڈمن (آپ) سب پڑھ سکے۔ **پہلے یہ، پھر ہی کچھ اور** — نئے rules کے بغیر لوگوں کی data access غلط ہو سکتی ہے۔
+یہ `firestore.rules` سرور پر لگاتا ہے — یہی طے کرتا ہے کہ ہر صارف صرف اپنا
+`users/{uid}` پڑھ/لکھ سکے۔ نئے rules کے بغیر سینک permission errors دیتا ہے۔
 
-### 4.2 Indexes
+### 4.2 Indexes (جب پیغام آئے)
 
 ```bash
 firebase deploy --only firestore:indexes
 ```
 
-**یہ کیا کرتا ہے:** `firestore.indexes.json` میں لکھی composite indexes بناتا ہے (licenses کی ترتیب والی queries کے لیے)۔ Index بننے میں 1–2 منٹ لگ سکتے ہیں۔ اس کے بغیر کچھ queries `The query requires an index` کی error دیں گی۔
+Composite index بننے میں 1–2 منٹ لگ سکتے ہیں۔ بغیر اِس کے کچھ queries
+`The query requires an index` دیتی ہیں۔
 
-> دونوں ایک ساتھ بھی چلا سکتے ہیں: `firebase deploy --only firestore`
-
----
-
-## قدم 5 — Cloud Functions اپلوڈ کریں
-
-### 5.1 پہلی بار: سریٹ (صرف ایک بار)
-
-```bash
-firebase functions:secrets:set ACTIVATION_PEPPER
-```
-
-**یہ کیا کرتا ہے:** واؤچر کوڈز کو hash کرنے والا خفیہ سٹرنگ Google Secret Manager میں جمع کرواتا ہے — کوڈ کبھی خام نہیں جاتا، صرف hash محفوظ ہوتا ہے۔
-
-- Value پوچھے تو اپنے کمپیوٹر پر پہلے یہ چلائیں اور آؤٹ پوٹ paste کریں:
-  ```bash
-  openssl rand -hex 32
-  ```
-- آنسر **پاس ورڈ مینیجر** میں محفوظ کریں۔
-- ⚠️ بعد میں اسے بدلنا پرانے unused واؤچرز کے hashes بے کار کر دے گا۔
-
-### 5.2 پہلی بار: functions کی dependencies
-
-```bash
-cd functions
-npm ci
-cd ..
-```
-
-**یہ کیا کرتا ہے:** `functions/package-lock.json` کے بالکل وہی versions نصب کرتا ہے۔
-
-### 5.3 Functions deploy
-
-```bash
-firebase deploy --only functions
-```
-
-**یہ کیا کرتا ہے:**
-
-1. `firebase.json` کا `predeploy` خود `functions/` میں TypeScript build کرتا ہے۔
-2. ساتھ `asia-south1` ریجن پر 7 فنکشنز اپلوڈ ہوتے ہیں: `activate`، `checkStatus`، `createCodes`، `listCodes`، `resetActivation`، `revokeCode`، `extendCode`۔
-3. پہلی بار CLI APIs enable کرنے کی اجازت مانگے گا (Cloud Build، Artifact Registry، Cloud Run، Eventarc) — **Yes** دبائیں۔ 5–10 منٹ لگ سکتے ہیں۔
-
-تصدیق: ختم ہونے پر آؤٹ پوٹ میں `functions[asia-south1-...]` کی فہرست نظر آنی چاہیے۔ Console میں: `https://console.firebase.google.com/project/gen-lang-client-09792501-d8895/functions`
+> دونوں ایک ساتھ: `firebase deploy --only firestore`
 
 ---
 
-## قدم 6 — Frontend (ویب سائٹ) اپلوڈ کریں
-
-### 6.1 پہلی بار: dependencies
+## قدم 5 — ویب ایپ (Hosting)
 
 ```bash
 bun install
-```
-
-### 6.2 بلڈ
-
-```bash
 bun run typecheck
 bun run build
-```
-
-**یہ کیا کرتا ہے:** پہلے TypeScript error کھوجتا ہے، پھر `dist/` فولڈر بنتا ہے — یہی وہ چیز ہے جو Hosting پر جاتی ہے۔
-
-### 6.3 Hosting deploy
-
-```bash
 firebase deploy --only hosting
 ```
 
-**یہ کیا کرتا ہے:** `dist/` کی تمام فائلیں Firebase Hosting پر اپلوڈ کرتا ہے اور SPA rewrite برقرار رکھتا ہے (اس لیے `/activate` یا `/admin` براہ راست کھولنے پر 404 نہیں آتا)۔
+`bun run build` پہلے TypeScript چیک کرتا ہے، پھر `dist/` بناتا ہے (اور `.map` ہٹاتا
+ہے)، پھر Hosting وہی `dist/` اپ لوڈ کرتا ہے۔ SPA rewrite کی وجہ سے deep links 404
+نہیں دیتے۔
 
 ختم ہونے پر لنک ملے گا:
 
@@ -218,89 +138,92 @@ https://gen-lang-client-09792501-d8895.web.app
 
 ---
 
-## اگلی بار صرف ایک کمانڈ
+## قدم 6 — AI function (اختیاری)
 
 ```bash
-bun run build && firebase deploy
+printf 'ZAI_API_KEY=%s\n' 'اپنی-چابی' > functions/.env    # git میں نہیں جاتی
+firebase deploy --only functions
 ```
 
-**یہ کیا کرتا ہے:** فرانت بلڈ + rules + indexes + functions + hosting — سب ایک ساتھ۔ functions کا build `predeploy` خود کر لیتا ہے۔
-
-## 📱 موبائل سے ایک ٹیپ ڈیپلائے (GitHub Actions)
-
-کمپیوٹر یا Cloud Shell کی ضرورت نہیں۔ GitHub موبائل ایپ سے براہِ راست ڈیپلائے کریں۔
-
-### ایک بار کی تیاری
-
-1. GitHub → ریپو → **Settings → Secrets and variables → Actions**
-2. **New repository secret** → نام: `FIREBASE_SERVICE_ACCOUNT`
-   ویلیو: Firebase Console → ⚙️ Project settings → Service accounts → **Generate new private key** سے ملی JSON فائل کا پورا مواد۔
-3. (صرف پہلی بار، اختیاری) دوسرا secret بنائیں: `ACTIVATION_PEPPER` — ویلیو `openssl rand -hex 32` کا نتیجہ۔
-
-> 🔴 service-account JSON نہ ریپو میں commit کریں، نہ کسی کو بھیجیں — یہ سارے Firestore rules بائی پاس کرتی ہے۔ صرف GitHub کے secret store میں رہے۔
-
-### ڈیپلائے کیسے کریں
-
-1. GitHub ایپ → **Actions** → **Deploy to Firebase** → **Run workflow**
-2. `targets` چنیں:
-   - `hosting-and-functions` — ڈیفالٹ: UI + فنکشنز
-   - `hosting-only` — صرف UI
-   - `functions-only` — صرف فنکشنز
-   - `everything` — rules + indexes بھی (احتیاط: جو indexes فائل میں نہیں وہ ڈیلیٹ ہو سکتے ہیں)
-3. پہلی بار `set_activation_pepper` کو ✅ آن کریں — صرف اس وقت جب `ACTIVATION_PEPPER` secret سیٹ ہو۔ واؤچر بننے کے بعد اسے **کبھی** آن نہ کریں۔
-4. **Run workflow** دبائیں → تقریباً 3–5 منٹ۔
-
-یہ workflow خود یہ سب کرتا ہے: typecheck، ledger ٹیسٹ، فرانت بلڈ، functions بلڈ، اور پھر ڈیپلائے — یعنی ٹوٹا ہوا کوڈ لائیو نہیں جاتا۔
-
-> ✅ یہ workflow صرف ہاتھ سے چلتا ہے۔ کسی push یا merge پر خودکار ڈیپلائے **نہیں** ہوتا۔
+- function کا نام `analyze`، region `us-central1` — کلائنٹ بھی وہیں سے بلاتا ہے۔
+- پہلی بار CLI کچھ APIs enable کرنے کی اجازت مانگے گا (Cloud Build, Artifact Registry,
+  Cloud Run, Eventarc) — **Yes**۔
+- چابی کبھی code، commit یا چیٹ میں نہ رکھیں۔ بدلنی ہو تو `functions/.env` اپ ڈیٹ
+  کریں، دوبارہ deploy کریں، اور پرانی چابی فراہم کنندہ کے ڈیش بورڈ سے منسوخ کریں
+  (تفصیل `RUNBOOK.md` مرحلہ 4)۔
+- Function نہ ہو تو ایپ «مشورہ» پر واضح **مقامی** خلاصہ دکھاتی ہے — یہ خرابی نہیں۔
 
 ---
 
-## ڈیپلائے کے بعد — چیک لسٹ
+## قدم 7 — ڈیپلائے کے بعد چیک لسٹ
 
-| #   | کیا کریں                                 | متوقع نتیجہ                                        |
-| --- | ---------------------------------------- | -------------------------------------------------- |
-| 1   | لنک کھولیں                               | Landing page کھل جائے                              |
-| 2   | `/activate`                              | ایکٹیویشن سکرین دکھے (غلط کوڈ پر اردو error)      |
-| 3   | `/admin`                                 | `/admin/login` پر جائے                             |
-| 4   | اپنا ای میل + پاس ورڈ ڈالیں             | ایڈمن پینل کھل جائے                                |
-| 5   | "نیا کوڈ بنائیں" → بنائیں               | QR + SAUTI-XXXX-XXXX-XXXX نظر آئے                 |
-| 6   | فون کے کیمرہ سے QR اسکن کریں            | `/activate?c=...` کھلے، کوڈ خود بھرا ہو            |
-| 7   | Console → Functions                      | 7 فنکشنز نظر آئیں                                 |
-| 8   | Console → Firestore → Rules              | merged rules (`codes`، `licenses` شامل)            |
-| 9   | Console → Authentication → Users         | آپ کا admin اکاؤنٹ + نئے anonymous صارف           |
-|10   | DevTools → Console                       | کوئی سرخ error نہ ہو                               |
+| # | کیا کریں | متوقع |
+| --- | --- | --- |
+| 1 | لائیو URL کھولیں | ایپ کھلے، پہلی سکرین Urdu |
+| 2 | ایک خرچہ درج کریں | فوراً محفوظ، «کلاؤڈ پر محفوظ» |
+| 3 | Settings → «کھاتہ محفوظ کریں» | email لکھیں → لنک آئے → لنک کھلے → «کھاتہ ای میل سے محفوظ ہو گیا» |
+| 4 | Console → Authentication → Users | anonymous صارف (اور لنک کے بعد وہی uid email کے ساتھ) |
+| 5 | Console → Firestore → Rules | published rules |
+| 6 | Console → Firestore → Data | `users/{uid}/records` میں اندراج |
+| 7 | (AI ہو تو) Console → Functions | `analyze` |
+| 8 | DevTools → Console | کوئی سرخ error نہیں |
 
-> 🔴 **اہم:** آپ کے admin اکاؤنٹ کا UID بالکل `vDzRVOYUgMNwcvD5oBdPVibDFFq1` ہونا چاہیے (Console → Authentication → Users میں دیکھیں)۔ اگر مختلف ہو تو پینل میں **"اس اکاؤنٹ سے رسائی ممنوع"** آئے گا — اسے بتانا، حل `admin.ts`، `firestore.rules` اور `functions/src/config.ts` میں ہے (تینوں جگہ ایک ہی UID)۔
+---
+
+## اگلی بار صرف ایک کمانڈ
+
+```bash
+bun run build && firebase deploy --only hosting,firestore:rules
+```
+
+---
+
+## 📱 موبائل سے ایک ٹیپ ڈیپلائے (GitHub Actions)
+
+کمپیوٹر کی ضرورت نہیں؛ GitHub موبائل ایپ سے چلائیں۔
+
+### ایک بار کی تیاری
+
+1. GitHub → ریپو → **Settings → Secrets and variables → Actions**۔
+2. **New repository secret** → نام: `FIREBASE_SERVICE_ACCOUNT` → ویلیو: Firebase
+   Console → ⚙️ Project settings → Service accounts → **Generate new private key**
+   سے ملی JSON کا پورا مواد۔
+3. (اختیاری، source maps کے لیے) `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`,
+   `SENTRY_PROJECT`۔
+
+> 🔴 service-account JSON نہ commit کریں، نہ کسی کو بھیجیں — یہ سارے rules بائی پاس
+> کرتی ہے۔ صرف GitHub secrets میں رہے۔
+
+### ڈیپلائے
+
+1. GitHub ایپ → **Actions** → **Deploy to Firebase** → **Run workflow**۔
+2. `targets` چنیں:
+   - `hosting-and-rules` — ڈیفالٹ (UI + rules)
+   - `hosting-only` — صرف UI
+   - `rules-only` — صرف rules
+   - `everything` — rules + indexes + hosting (احتیاط: indexes فائل سے باہر والے
+     delete ہو سکتے ہیں)
+3. **Run workflow** → تقریباً 3–5 منٹ۔
+
+Workflow خود typecheck، ledger tests، frontend build اور `verify:nomaps` چلاتا ہے —
+ٹوٹا یا میپ والا بلڈ لائیو نہیں جاتا۔ یہ صرف ہاتھ سے چلتا ہے، کسی push پر نہیں۔
 
 ---
 
 ## عمومی مسائل
 
-| علامت                         | حل                                                          |
-| ------------------------------ | ----------------------------------------------------------- |
-| `You are not logged in`       | قدم 2 دوبارہ چلائیں                                         |
-| `project is not a valid project` | قدم 3: `firebase use --add`                              |
-| `Your project must be on the Blaze plan` | Firebase Console → Billing میں Blaze آن کریں         |
-| `A secret with this name already exists` | پہلے سے سیٹ ہے — قدم 5.1 چھوڑ دیں                  |
-| `The query requires an index` | قدم 4.2، یا error میں آیا لنک کلک کریں                     |
-| `auth/operation-not-allowed`  | Console → Authentication → Sign-in method → Email/Password Enable |
-| Hosting پر `/admin` 404       | `firebase.json` میں SPA rewrite چیک کریں، دوبارہ قدم 6.3   |
-| پینل میں "رسائی ممنوع"        | admin UID چیک کریں (اوپر والی نوٹ)                          |
-| پینل میں لسٹ خالی/error       | functions deploy ہوئے؟ قدم 5.3 — اور `ACTIVATION_PEPPER` سیٹ ہے؟ |
+| علامت | حل |
+| --- | --- |
+| `You are not logged in` | قدم 2 دوبارہ |
+| `project is not a valid project` | قدم 3 |
+| `Missing or insufficient permissions` | قدم 4.1 (rules deploy) |
+| `The query requires an index` | قدم 4.2، یا error کے لنک پر کلک |
+| Hosting پر deep link 404 | `firebase.json` کا SPA rewrite چیک کریں، قدم 5 دوبارہ |
+| `auth/operation-not-allowed` (ای میل لنک) | `FIREBASE-SETUP.md` مرحلہ 2.2 |
+| `auth/unauthorized-continue-uri` | `FIREBASE-SETUP.md` مرحلہ 3 (Authorized domains) |
+| `Your project must be on the Blaze plan` | صرف AI کے لیے — `FIREBASE-SETUP.md` مرحلہ 7 |
+| Functions پر Node runtime decommission error | `firebase.json` کا runtime `nodejs22` اور `functions/package.json` کا `engines.node` `22` کریں، پھر deploy |
+| AI پر «اے آئی دستیاب نہیں» | `functions/.env` میں چابی سیٹ کریں، قدم 6 دوبارہ |
 
-مزید تفصیل: `docs/FIREBASE-SETUP.md` (Console setup) اور `docs/SETUP-ACCOUNTS.md`۔
-
----
-
-## 🔐 سالانہ Pepper Rotation (آڈٹ #33)
-
-- نئی pepper پر hashes پرانے **unused واؤچرز** کے میل نہیں کھاته — rotate سے پہلے انہیں استعمال کروا دیں یا منسوخ کر دیں۔
-- کمانڈز:
-  ```bash
-  openssl rand -hex 32
-  firebase functions:secrets:set ACTIVATION_PEPPER
-  firebase deploy --only functions
-  ```
-- پہلے سے **active licences متاثر نہیں** ہوتے — نئے activation tokens نئی pepper سے sign ہوتے ہیں۔
-- سالانہ نظام: ہر سال rotate کريں، اور اگلے دن ایک نئ unused واؤچر بنا کر فون سے activate ٹیسٹ کريں۔
+مزید: [`FIREBASE-SETUP.md`](FIREBASE-SETUP.md) (Console) اور
+[`RUNBOOK.md`](RUNBOOK.md) (بحالی، چابی، گمشدہ فون)۔
